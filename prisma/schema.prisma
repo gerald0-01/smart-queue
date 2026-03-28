@@ -1,0 +1,142 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+//////////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////////
+
+enum Role {
+  STUDENT
+  STAFF
+  ADMIN
+  ALUMNI
+}
+
+enum RequestStatus {
+  PENDING
+  PROCESSING
+  READY
+  REJECTED
+}
+
+enum College {
+  COE
+  CCS
+  CSM
+  CHS
+  CEBA
+  CED
+}
+ 
+//////////////////////////////////////////////////
+// USER
+//////////////////////////////////////////////////
+
+model User {
+  id        String   @id @default(cuid())
+  name      String   
+  idNumber  String   @unique
+  college   College?
+  course    String?
+  email     String   @unique
+  password  String
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+
+  requests      Request[]
+  notifications Notification[]
+
+  refreshTokens RefreshToken[]
+}
+
+//////////////////////////////////////////////////
+// DOCUMENT TYPES
+//////////////////////////////////////////////////
+
+model DocumentType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  requests    Request[]
+}
+
+//////////////////////////////////////////////////
+// REQUEST (CORE SYSTEM)
+//////////////////////////////////////////////////
+
+model Request {
+  id              String        @id @default(cuid())
+  userId          String
+  documentTypeId  String
+
+  queueNumber     Int
+  status          RequestStatus @default(PENDING)
+
+  purpose         String
+  notes           String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  processedAt     DateTime?
+  availablePickUp DateTime?
+
+  user           User          @relation(fields: [userId], references: [id])
+  documentType   DocumentType  @relation(fields: [documentTypeId], references: [id])
+
+  @@index([status])
+  @@index([queueNumber])
+}
+
+//////////////////////////////////////////////////
+// NOTIFICATIONS
+//////////////////////////////////////////////////
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+
+  message   String
+  isRead    Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+//////////////////////////////////////////////////
+// QUEUE COUNTER (SAFE QUEUE GENERATION)
+//////////////////////////////////////////////////
+
+model QueueCounter {
+  id        String   @id @default(cuid())
+  lastQueue Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+//////////////////////////////////////////////////
+// REFRESH TOKEN 
+//////////////////////////////////////////////////
+
+model RefreshToken {
+  id           String    @id @default(uuid())
+  hashedToken  String    @unique
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  revoked      Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  expireAt     DateTime  // The expiration date/time
+}
