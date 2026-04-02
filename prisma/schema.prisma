@@ -27,6 +27,7 @@ enum RequestStatus {
   PENDING
   PROCESSING
   READY
+  COMPLETED
   REJECTED
 }
 
@@ -38,21 +39,32 @@ enum College {
   CEBA
   CED
 }
+
+enum NotificationType {
+  STATUS_UPDATE
+  QUEUE_ROLLOVER
+  PICKUP_READY
+  GENERAL
+}
  
 //////////////////////////////////////////////////
 // USER
 //////////////////////////////////////////////////
 
 model User {
-  id        String   @id @default(cuid())
-  name      String   
-  idNumber  String   @unique
-  college   College?
-  course    String?
-  email     String   @unique
-  password  String
-  role      Role     @default(STUDENT)
-  createdAt DateTime @default(now())
+  id                 String    @id @default(cuid())
+  name               String
+  idNumber           String    @unique
+  college            College?
+  course             String?
+  email              String    @unique
+  password           String
+  role               Role      @default(STUDENT)
+  verified           Boolean   @default(false)
+  verificationToken  String?   @unique
+  resetToken         String?   @unique
+  resetTokenExpiry   DateTime?
+  createdAt          DateTime  @default(now())
 
   requests      Request[]
   notifications Notification[]
@@ -87,6 +99,7 @@ model Request {
 
   purpose         String
   notes           String?
+  message         String?
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -95,6 +108,7 @@ model Request {
 
   user           User          @relation(fields: [userId], references: [id])
   documentType   DocumentType  @relation(fields: [documentTypeId], references: [id])
+  notifications  Notification[]
 
   @@index([status])
   @@index([queueNumber])
@@ -105,15 +119,18 @@ model Request {
 //////////////////////////////////////////////////
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
+  requestId String?
 
+  type      NotificationType @default(GENERAL)
   message   String
-  isRead    Boolean  @default(false)
+  isRead    Boolean          @default(false)
 
-  createdAt DateTime @default(now())
+  createdAt DateTime         @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
+  user      User             @relation(fields: [userId], references: [id])
+  request   Request?         @relation(fields: [requestId], references: [id])
 }
 
 //////////////////////////////////////////////////

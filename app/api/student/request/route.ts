@@ -2,76 +2,71 @@ import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit, getClientIP } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
+    const ip = getClientIP(req);
+    const result = rateLimit.general(ip);
+
+    if (!result.success) {
+        return NextResponse.json({ success: false, message: "Too many requests. Please try again later." }, { status: 429 });
+    }
+
     try {
-        const session = await getServerSession(authOptions)
+        const session = await getServerSession(authOptions);
 
-        const { document, documentDescription, notes, purpose } = await req.json()
+        if (!session) {
+            return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+        }
 
-        if (!document || !purpose) return NextResponse.json(
-            { success: false, message: "Fill in the required fields." },
-            { status: 400}
-        )
+        if (!["STUDENT", "ALUMNI", "ADMIN"].includes(session.user.role)) {
+            return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
+        }
 
-        await prisma.$transaction(async () => {
-            let doc = await prisma.documentType.findUnique({
-            where: { name: document }
-            })
+        const { name, description, notes, purpose } = await req.json();
 
-            if (!doc) doc = await prisma.documentType.create({
+        if (!name || !purpose) {
+            return NextResponse.json({ success: false, message: "Fill in the required fields." }, { status: 400 });
+        }
+
+        let queueNumber: number | undefined;
+
+        await prisma.$transaction(async (tx) => {
+            let doc = await tx.documentType.findUnique({ where: { name } });
+
+            if (!doc) {
+                doc = await tx.documentType.create({ data: { name, description } });
+            }
+
+            let counter = await tx.queueCounter.findFirst();
+            if (!counter) {
+                counter = await tx.queueCounter.create({ data: {} });
+            }
+
+            queueNumber = counter.lastQueue + 1;
+
+            await tx.queueCounter.update({
+                where: { id: counter.id },
+                data: { lastQueue: queueNumber },
+            });
+
+            await tx.request.create({
                 data: {
-                    name: document,
-                    description: documentDescription
-                }
-            })
-
-            prisma.request.create({
-                data: {
-                    userId: session?.user.id as string,
+                    userId: session.user.id,
                     purpose,
                     notes,
                     documentTypeId: doc.id,
-                    queueNumber: await getNextQueueNumber()
-                }
-            })
-        })
+                    queueNumber: queueNumber as number,
+                },
+            });
+        });
 
         return NextResponse.json(
-            { success: true, message: "Document requested!" },
+            { success: true, message: "Document requested!", queueNumber },
             { status: 201 }
-        )
+        );
     } catch (err) {
-        console.error("REQUEST ERROR: ", err)
-
-        return NextResponse.json(
-            { success: false, message: "Server Error" },
-            { status: 500 }
-        )
+        console.error("REQUEST ERROR:", err);
+        return NextResponse.json({ success: false, message: "Server Error" }, { status: 500 });
     }
-}
-
-async function getNextQueueNumber() {
-  // Use a transaction to prevent race conditions
-  return await prisma.$transaction(async (tx) => {
-    // 1. Get the counter row (assuming you only have 1)
-    let counter = await tx.queueCounter.findFirst();
-
-    if (!counter) {
-      // Create counter if it doesn't exist
-      counter = await tx.queueCounter.create({ data: {} });
-    }
-
-    // 2. Increment lastQueue
-    const nextQueue = counter.lastQueue + 1;
-
-    // 3. Update counter
-    await tx.queueCounter.update({
-      where: { id: counter.id },
-      data: { lastQueue: nextQueue },
-    });
-
-    // 4. Return next queue number
-    return nextQueue;
-  });
 }

@@ -1,14 +1,16 @@
-'use client'
-import StaffDashboard from "@/components/StaffDashboard";
-import Dashboard from "@/components/Dashboard";
-import { useSession } from "next-auth/react";
+import StaffDashboard from "@/components/dashboard/StaffDashboard";
+import AdminDashboard from "@/components/dashboard/admin/AdminDashboard";
+import Dashboard from "@/components/dashboard/Dashboard";
 import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 
-export default function Page() {
-    const { data: session, status } = useSession()
+export default async function Page() {
+    const session = await getServerSession(authOptions)
 
     if (!session) redirect("/login")
 
-    if (session.user.role == 'STUDENT') return <Dashboard/>
-    if (session.user.role == 'STAFF') return <StaffDashboard/>
+    if (session.user.role === 'STUDENT' || session.user.role === 'ALUMNI') return <Dashboard/>
+    if (session.user.role === 'STAFF') return <StaffDashboard/>
+    if (session.user.role === 'ADMIN') return <AdminDashboard/>
 }

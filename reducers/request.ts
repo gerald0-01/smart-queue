@@ -1,7 +1,8 @@
 export const requestInitialState = {
     name: "",
     purpose: "",
-    notes: ""
+    notes: "",
+    customName: ""
 } 
 
 export function requestReducer(state: any, action: any) {

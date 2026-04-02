@@ -5,6 +5,11 @@ import { Suspense } from "react";
 import Loading from "@/components/Loading";
 import { RoleProvider } from "@/context/provider";
 
+export const metadata = {
+  title: "Smart Queue — MSU-IIT Document Request",
+  description: "Request documents digitally and track your queue status in real time.",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -17,9 +22,9 @@ export default function RootLayout({
           <Suspense fallback={<Loading/>}>
             <RoleProvider>
               <Navbar/>
-              <div className="h-screen w-screen bg-tertiary grid place-items-center">
+              <main className="min-h-screen w-full pt-20" style={{ backgroundColor: 'var(--color-bg)' }}>
                 {children}
-              </div>
+              </main>
             </RoleProvider>
           </Suspense>
         </ClientProvider>

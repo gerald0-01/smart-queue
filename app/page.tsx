@@ -1,7 +1,13 @@
-export default function Home() {
-  return (
-   <div className="flex items-center justify-center h-screen w-screen bg-primary">
-    <h1>Welcome to Smart Queue</h1>
-   </div>
-  );
+import Welcome from "@/components/Welcome";
+import { authOptions } from "@/lib/authOptions";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+
+export default async function Home() {
+  const session = await getServerSession(authOptions)
+
+  if (session) redirect("/dashboard")
+
+  return <Welcome/>
+  
 }

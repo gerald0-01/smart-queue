@@ -24,6 +24,14 @@ export const authOptions: AuthOptions = {
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) return null;
 
+        if (!user.verified) {
+          throw new Error(
+            user.role === "STAFF"
+              ? "Your account has not been verified by an administrator yet."
+              : "Please verify your email before logging in."
+          );
+        }
+
         return {
           id: user.id,
           name: user.name,

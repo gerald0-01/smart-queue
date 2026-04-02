@@ -1,6 +1,6 @@
 'use client'
-import StaffRegister from "@/components/StaffRegisterContainer"
-import Register from "@/components/RegisterContainer"
+import StaffRegister from "@/components/register/StaffRegisterContainer"
+import Register from "@/components/register/RegisterContainer"
 import { RoleContext } from "@/context/roleRegistrationContext"
 import { useContext } from "react"
 
