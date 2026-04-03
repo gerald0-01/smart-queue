@@ -44,19 +44,19 @@ export default function Dashboard() {
   if (status === 'loading') return null
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] px-4 py-8 max-w-3xl mx-auto fade-in">
+    <div className="min-h-[calc(100vh-5rem)] px-3 sm:px-4 py-6 sm:py-8 max-w-3xl mx-auto fade-in">
 
       {/* Welcome */}
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-tertiary)' }}>Welcome back</p>
-        <h1 className="text-3xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>
+        <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>
           {session?.user.name}
         </h1>
         <div className="gold-divider mt-2" style={{ margin: '0.5rem 0 0' }} />
       </div>
 
       {/* Action cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {[
           { href: "/dashboard/request", icon: "📄", label: "Request",      desc: "Submit a new document request.", border: 'var(--color-secondary)', bg: 'rgba(128,0,32,0.08)' },
           { href: "/dashboard/queue",   icon: "🔢", label: "Queue Status", desc: "Check your active queue position.", border: 'var(--color-tertiary)', bg: 'rgba(212,175,55,0.1)' },
@@ -75,7 +75,7 @@ export default function Dashboard() {
       </div>
 
       {/* Recent activity */}
-      <div className="card p-6">
+      <div className="card p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-extrabold text-base" style={{ color: 'var(--color-secondary)' }}>
             Recent Activity
@@ -87,7 +87,7 @@ export default function Dashboard() {
         </div>
 
         {recent.length === 0 ? (
-          <div className="text-center py-8">
+          <div className="text-center py-6 sm:py-8">
             <div className="text-3xl mb-2">📭</div>
             <p className="text-sm" style={{ color: '#9CA3AF' }}>No requests yet. Submit your first one!</p>
           </div>
@@ -96,13 +96,13 @@ export default function Dashboard() {
             {recent.map(req => (
               <div key={req.id} className="flex items-center justify-between p-3 rounded-lg"
                 style={{ backgroundColor: '#F9FAFB' }}>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold flex-shrink-0"
                     style={{ backgroundColor: 'rgba(128,0,32,0.08)', color: 'var(--color-secondary)' }}>
                     #{req.queueNumber}
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: '#374151' }}>{req.documentType.name}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: '#374151' }}>{req.documentType.name}</p>
                     <p className="text-xs" style={{ color: '#9CA3AF' }}>
                       {new Date(req.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>

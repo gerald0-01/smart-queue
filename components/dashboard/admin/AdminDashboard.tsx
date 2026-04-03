@@ -63,19 +63,19 @@ export default function AdminDashboard() {
   ] : []
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] px-4 py-8 max-w-6xl mx-auto fade-in">
+    <div className="min-h-[calc(100vh-5rem)] px-3 sm:px-4 py-6 sm:py-8 max-w-6xl mx-auto fade-in">
 
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between">
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-tertiary)' }}>Admin Portal</p>
-          <h1 className="text-3xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>Admin Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>Admin Dashboard</h1>
           <div className="gold-divider mt-2" style={{ margin: '0.5rem 0 0' }} />
           <p className="text-sm mt-2" style={{ color: '#6B7280' }}>
             Welcome, {session?.user.name}
           </p>
         </div>
-        <button onClick={fetchDashboard} className="btn btn-outline text-xs px-3 py-1.5 mt-1">
+        <button onClick={fetchDashboard} className="btn btn-outline text-xs px-3 py-1.5 w-full sm:w-auto">
           ↻ Refresh
         </button>
       </div>
@@ -85,7 +85,7 @@ export default function AdminDashboard() {
         style={{ backgroundColor: '#F3F4F6' }}>
         {(['overview', 'users'] as AdminTab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className="px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all"
+            className="px-4 sm:px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all whitespace-nowrap"
             style={{
               backgroundColor: tab === t ? '#fff' : 'transparent',
               color: tab === t ? 'var(--color-secondary)' : '#6B7280',
@@ -112,12 +112,12 @@ export default function AdminDashboard() {
           {data && (
             <>
               {/* Stat cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
                 {statCards.map(s => (
-                  <div key={s.label} className="card p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-2xl">{s.icon}</span>
-                      <span className="text-3xl font-extrabold" style={{ color: s.color }}>{s.value}</span>
+                  <div key={s.label} className="card p-4 sm:p-5">
+                    <div className="flex items-center justify-between mb-2 sm:mb-3">
+                      <span className="text-xl sm:text-2xl">{s.icon}</span>
+                      <span className="text-2xl sm:text-3xl font-extrabold" style={{ color: s.color }}>{s.value}</span>
                     </div>
                     <p className="text-sm font-semibold" style={{ color: '#6B7280' }}>{s.label}</p>
                   </div>

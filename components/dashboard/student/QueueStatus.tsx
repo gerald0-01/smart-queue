@@ -73,43 +73,43 @@ export default function QueueStatus() {
   const active = requests.filter(r => r.status !== 'COMPLETED' && r.status !== 'REJECTED')
 
   return (
-    <div className="flex items-start justify-center min-h-[calc(100vh-5rem)] px-4 py-8 fade-in">
+    <div className="flex items-start justify-center min-h-[calc(100vh-5rem)] px-3 sm:px-4 py-6 sm:py-8 fade-in">
       <div className="w-full max-w-2xl">
 
         {/* Header */}
-        <div className="mb-6 flex items-start justify-between">
+        <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-tertiary)' }}>Student Portal</p>
-            <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>Queue Status</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>Queue Status</h1>
             <div className="gold-divider mt-2" style={{ margin: '0.5rem 0 0' }} />
           </div>
           <button onClick={fetchData}
-            className="btn btn-outline text-xs px-3 py-1.5 mt-1"
+            className="btn btn-outline text-xs px-3 py-1.5 w-full sm:w-auto"
             title="Refresh">
             ↻ Refresh
           </button>
         </div>
 
         {/* Now Serving banner */}
-        <div className="card mb-6 overflow-hidden">
-          <div className="px-6 py-4 flex items-center justify-between"
+        <div className="card mb-5 sm:mb-6 overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 flex items-center justify-between"
             style={{ background: 'linear-gradient(135deg, var(--color-secondary), var(--color-dark))' }}>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
                 Now Serving
               </p>
-              <div className="text-5xl font-extrabold" style={{ color: 'var(--color-tertiary)', letterSpacing: '-1px' }}>
+              <div className="text-4xl sm:text-5xl font-extrabold" style={{ color: 'var(--color-tertiary)', letterSpacing: '-1px' }}>
                 {nowServing !== null
                   ? String(nowServing).padStart(3, '0')
-                  : <span className="text-2xl" style={{ color: 'rgba(255,255,255,0.5)' }}>—</span>}
+                  : <span className="text-xl sm:text-2xl" style={{ color: 'rgba(255,255,255,0.5)' }}>—</span>}
               </div>
             </div>
-            <div className="text-5xl opacity-20 select-none">🎫</div>
+            <div className="text-4xl sm:text-5xl opacity-20 select-none">🎫</div>
           </div>
         </div>
 
         {loading && (
-          <div className="flex justify-center py-12">
+          <div className="flex justify-center py-10 sm:py-12">
             <div className="spinner" style={{ width: '2.5rem', height: '2.5rem', borderWidth: '4px' }} />
           </div>
         )}
@@ -117,16 +117,16 @@ export default function QueueStatus() {
         {error && <ErrorCard message={error} onRetry={fetchData} />}
 
         {!loading && !error && active.length === 0 && (
-          <div className="card p-12 text-center">
+          <div className="card p-8 sm:p-12 text-center">
             <div className="text-4xl mb-3">🎉</div>
-            <p className="font-semibold" style={{ color: '#6B7280' }}>No active requests.</p>
+            <p className="font-semibold text-sm sm:text-base" style={{ color: '#6B7280' }}>No active requests.</p>
             <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>
               All your requests are completed or you haven&apos;t submitted any yet.
             </p>
           </div>
         )}
 
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4 sm:gap-5">
           {active.map(req => {
             const info = STATUS_INFO[req.status]
             const stepIdx = STATUS_STEPS.indexOf(req.status)
@@ -139,21 +139,21 @@ export default function QueueStatus() {
               <div key={req.id} className="card overflow-hidden">
 
                 {/* Top status bar */}
-                <div className="px-6 py-4 flex items-center justify-between"
+                <div className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
                   style={{ backgroundColor: info.bg }}>
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{info.icon}</span>
+                    <span className="text-xl sm:text-2xl">{info.icon}</span>
                     <div>
                       <p className="font-extrabold text-base" style={{ color: info.color }}>{info.label}</p>
                       <p className="text-xs mt-0.5" style={{ color: info.color, opacity: 0.75 }}>{info.desc}</p>
                     </div>
                   </div>
                   {/* Queue number badge */}
-                  <div className="text-right">
+                  <div className="text-left sm:text-right">
                     <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: info.color, opacity: 0.7 }}>
                       Your Number
                     </p>
-                    <div className="text-3xl font-extrabold" style={{ color: info.color }}>
+                    <div className="text-2xl sm:text-3xl font-extrabold" style={{ color: info.color }}>
                       {String(req.queueNumber).padStart(3, '0')}
                     </div>
                   </div>
@@ -163,27 +163,27 @@ export default function QueueStatus() {
                 {(isPending || isProcessing) && (
                   <div className="grid grid-cols-3 divide-x divide-gray-200"
                     style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <div className="px-4 py-3 text-center">
+                    <div className="px-3 sm:px-4 py-3 text-center">
                       <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#9CA3AF' }}>
                         Now Serving
                       </p>
-                      <p className="text-xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>
+                      <p className="text-lg sm:text-xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>
                         {nowServing !== null ? String(nowServing).padStart(3, '0') : '—'}
                       </p>
                     </div>
-                    <div className="px-4 py-3 text-center">
+                    <div className="px-3 sm:px-4 py-3 text-center">
                       <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#9CA3AF' }}>
                         Your Number
                       </p>
-                      <p className="text-xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>
+                      <p className="text-lg sm:text-xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>
                         {String(req.queueNumber).padStart(3, '0')}
                       </p>
                     </div>
-                    <div className="px-4 py-3 text-center">
+                    <div className="px-3 sm:px-4 py-3 text-center">
                       <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#9CA3AF' }}>
-                        People Ahead
+                        Ahead
                       </p>
-                      <p className="text-xl font-extrabold"
+                      <p className="text-lg sm:text-xl font-extrabold"
                         style={{ color: ahead === 0 ? '#065F46' : 'var(--color-secondary)' }}>
                         {ahead !== null ? ahead : '—'}
                       </p>
@@ -192,10 +192,10 @@ export default function QueueStatus() {
                 )}
 
                 {/* Details */}
-                <div className="px-6 py-4">
+                <div className="px-4 sm:px-6 py-4">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <p className="font-bold" style={{ color: 'var(--color-secondary)' }}>{req.documentType.name}</p>
+                      <p className="font-bold text-sm sm:text-base" style={{ color: 'var(--color-secondary)' }}>{req.documentType.name}</p>
                       <p className="text-sm mt-0.5" style={{ color: '#6B7280' }}>{req.purpose}</p>
                     </div>
                     <p className="text-xs flex-shrink-0 ml-3" style={{ color: '#9CA3AF' }}>
@@ -204,11 +204,11 @@ export default function QueueStatus() {
                   </div>
 
                   {/* Progress stepper */}
-                  <div className="flex items-center mb-4">
+                  <div className="flex items-center overflow-x-auto -mx-2 px-2">
                     {STATUS_STEPS.map((step, i) => (
-                      <div key={step} className="flex items-center flex-1">
-                        <div className="flex flex-col items-center flex-1">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all"
+                      <div key={step} className="flex items-center flex-1 min-w-0">
+                        <div className="flex flex-col items-center flex-1 min-w-0">
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all"
                             style={{
                               backgroundColor: i <= stepIdx ? 'var(--color-secondary)' : '#E5E7EB',
                               color: i <= stepIdx ? '#fff' : '#9CA3AF',
@@ -216,13 +216,13 @@ export default function QueueStatus() {
                             }}>
                             {i < stepIdx ? '✓' : i + 1}
                           </div>
-                          <span className="text-xs mt-1 font-medium"
+                          <span className="text-xs mt-1 font-medium truncate max-w-full"
                             style={{ color: i <= stepIdx ? 'var(--color-secondary)' : '#9CA3AF' }}>
                             {step.charAt(0) + step.slice(1).toLowerCase()}
                           </span>
                         </div>
                         {i < STATUS_STEPS.length - 1 && (
-                          <div className="h-0.5 flex-1 mb-4 transition-all"
+                          <div className="h-0.5 flex-1 mb-4 transition-all min-w-2"
                             style={{ backgroundColor: i < stepIdx ? 'var(--color-secondary)' : '#E5E7EB' }} />
                         )}
                       </div>

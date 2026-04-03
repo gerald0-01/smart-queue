@@ -53,8 +53,8 @@ export default function Request() {
   const isDisabled = !state.name || !state.purpose || (state.name === "Other" && !state.customName) || loading
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-5rem)] px-4 py-8 fade-in">
-      <div className="card w-full max-w-lg p-8">
+    <div className="flex items-center justify-center min-h-[calc(100vh-5rem)] px-3 sm:px-4 py-6 sm:py-8 fade-in">
+      <div className="card w-full max-w-lg p-5 sm:p-8">
         {/* Header */}
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mx-auto mb-3"

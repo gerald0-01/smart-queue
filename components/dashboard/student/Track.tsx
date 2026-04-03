@@ -90,24 +90,24 @@ export default function Track() {
           <div className="px-5 pb-5 border-t" style={{ borderColor: 'var(--color-border)' }}>
             {/* Stepper — only for non-rejected */}
             {!rejected && (
-              <div className="flex items-center my-4">
+              <div className="flex items-center my-3 sm:my-4 overflow-x-auto -mx-2 px-2">
                 {STATUS_STEPS.map((step, i) => (
-                  <div key={step} className="flex items-center flex-1">
-                    <div className="flex flex-col items-center flex-1">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all"
+                  <div key={step} className="flex items-center flex-1 min-w-0">
+                    <div className="flex flex-col items-center flex-1 min-w-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all"
                         style={{
                           backgroundColor: i <= currentStep ? 'var(--color-secondary)' : '#E5E7EB',
                           color: i <= currentStep ? '#fff' : '#9CA3AF',
                         }}>
                         {i < currentStep ? '✓' : i + 1}
                       </div>
-                      <span className="text-xs mt-1 font-medium text-center"
+                      <span className="text-xs mt-1 font-medium text-center truncate max-w-full"
                         style={{ color: i <= currentStep ? 'var(--color-secondary)' : '#9CA3AF' }}>
                         {step.charAt(0) + step.slice(1).toLowerCase()}
                       </span>
                     </div>
                     {i < STATUS_STEPS.length - 1 && (
-                      <div className="h-0.5 flex-1 mb-4 transition-all"
+                      <div className="h-0.5 flex-1 mb-4 transition-all min-w-4 sm:min-w-0"
                         style={{ backgroundColor: i < currentStep ? 'var(--color-secondary)' : '#E5E7EB' }} />
                     )}
                   </div>
@@ -157,16 +157,16 @@ export default function Track() {
   }
 
   return (
-    <div className="flex items-start justify-center min-h-[calc(100vh-5rem)] px-4 py-8 fade-in">
+    <div className="flex items-start justify-center min-h-[calc(100vh-5rem)] px-3 sm:px-4 py-6 sm:py-8 fade-in">
       <div className="w-full max-w-2xl">
-        <div className="mb-6">
+        <div className="mb-5 sm:mb-6">
           <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-tertiary)' }}>Student Portal</p>
-          <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>My Requests</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>My Requests</h1>
           <div className="gold-divider mt-2" style={{ margin: '0.5rem 0 0' }} />
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 rounded-xl mb-5"
+        <div className="flex gap-1 p-1 rounded-xl mb-4 sm:mb-5"
           style={{ backgroundColor: '#F3F4F6' }}>
           {(['active', 'completed'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
@@ -184,7 +184,7 @@ export default function Track() {
         </div>
 
         {loading && (
-          <div className="flex justify-center py-16">
+          <div className="flex justify-center py-12 sm:py-16">
             <div className="spinner" style={{ width: '2.5rem', height: '2.5rem', borderWidth: '4px' }} />
           </div>
         )}
@@ -192,9 +192,9 @@ export default function Track() {
         {error && <ErrorCard message={error} onRetry={fetchData} />}
 
         {!loading && !error && shown.length === 0 && (
-          <div className="card p-12 text-center">
+          <div className="card p-8 sm:p-12 text-center">
             <div className="text-4xl mb-3">{tab === 'active' ? '📭' : '🗂️'}</div>
-            <p className="font-semibold" style={{ color: '#6B7280' }}>
+            <p className="font-semibold text-sm sm:text-base" style={{ color: '#6B7280' }}>
               {tab === 'active' ? 'No active requests.' : 'No completed requests yet.'}
             </p>
           </div>

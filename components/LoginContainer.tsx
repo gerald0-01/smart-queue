@@ -35,8 +35,8 @@ export default function LoginContainer() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-5rem)] px-4 fade-in">
-      <div className="card w-full max-w-md p-8">
+    <div className="flex items-center justify-center min-h-[calc(100vh-5rem)] px-3 sm:px-4 py-6 sm:py-8 fade-in">
+      <div className="card w-full max-w-md p-5 sm:p-8">
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-extrabold mx-auto mb-4"
             style={{ backgroundColor: 'var(--color-secondary)', color: 'var(--color-tertiary)' }}>

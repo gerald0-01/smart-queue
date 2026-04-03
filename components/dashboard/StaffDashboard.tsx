@@ -227,15 +227,15 @@ export default function StaffDashboard() {
 
   return (
     <>
-    <div className="min-h-[calc(100vh-5rem)] px-4 py-8 max-w-6xl mx-auto fade-in">
-      <div className="mb-6 flex items-start justify-between">
+    <div className="min-h-[calc(100vh-5rem)] px-3 sm:px-4 py-6 sm:py-8 max-w-6xl mx-auto fade-in">
+      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-tertiary)' }}>Staff Portal</p>
-          <h1 className="text-3xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>Request Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>Request Management</h1>
           <div className="gold-divider mt-2" style={{ margin: '0.5rem 0 0' }} />
           <p className="text-sm mt-2" style={{ color: '#6B7280' }}>Welcome, {session?.user.name}</p>
         </div>
-        <div className="card px-5 py-3 text-center" style={{ borderTop: '3px solid var(--color-tertiary)' }}>
+        <div className="card px-4 sm:px-5 py-3 text-center w-full sm:w-auto" style={{ borderTop: '3px solid var(--color-tertiary)' }}>
           <div className="text-2xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>{todayCount}</div>
           <div className="text-xs font-semibold" style={{ color: '#6B7280' }}>Today&apos;s Queue</div>
         </div>
@@ -244,7 +244,7 @@ export default function StaffDashboard() {
       <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit" style={{ backgroundColor: '#F3F4F6' }}>
         {(['requests', 'analytics'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className="px-5 py-2 rounded-lg text-sm font-semibold transition-all"
+            className="px-4 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap"
             style={{ backgroundColor: tab===t?'#fff':'transparent', color: tab===t?'var(--color-secondary)':'#6B7280', boxShadow: tab===t?'0 1px 4px rgba(0,0,0,0.08)':'none', border:'none', cursor:'pointer' }}>
             {t === 'requests' ? '📋 Requests' : '📊 Analytics'}
           </button>
@@ -253,14 +253,16 @@ export default function StaffDashboard() {
 
       {tab === 'requests' && (
         <>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
-            {(['ALL','PENDING','PROCESSING','READY','COMPLETED','REJECTED'] as const).map(s => (
-              <button key={s} onClick={() => setFilter(s)} className="card p-4 text-center cursor-pointer transition-all hover:shadow-md"
-                style={{ borderTop: filter===s ? '3px solid var(--color-secondary)' : '3px solid transparent' }}>
-                <div className="text-2xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>{counts[s]}</div>
-                <div className="text-xs font-semibold mt-1" style={{ color: '#6B7280' }}>{s==='ALL'?'Total':SL[s]}</div>
-              </button>
-            ))}
+          <div className="overflow-x-auto mb-6 -mx-3 px-3">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 min-w-[500px] sm:min-w-0">
+              {(['ALL','PENDING','PROCESSING','READY','COMPLETED','REJECTED'] as const).map(s => (
+                <button key={s} onClick={() => setFilter(s)} className="card p-3 sm:p-4 text-center cursor-pointer transition-all hover:shadow-md"
+                  style={{ borderTop: filter===s ? '3px solid var(--color-secondary)' : '3px solid transparent' }}>
+                  <div className="text-xl sm:text-2xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>{counts[s]}</div>
+                  <div className="text-xs font-semibold mt-1" style={{ color: '#6B7280' }}>{s==='ALL'?'Total':SL[s]}</div>
+                </button>
+              ))}
+            </div>
           </div>
 
           {loading ? (
@@ -268,11 +270,28 @@ export default function StaffDashboard() {
           ) : error ? (
             <ErrorCard message={error} onRetry={fetchRequests} />
           ) : filtered.length === 0 ? (
-            <div className="card p-12 text-center"><div className="text-4xl mb-3">📭</div><p className="font-semibold" style={{ color:'#6B7280' }}>No requests found.</p></div>
+            <div className="card p-8 sm:p-12 text-center"><div className="text-4xl mb-3">📭</div><p className="font-semibold text-sm sm:text-base" style={{ color:'#6B7280' }}>No requests found.</p></div>
           ) : (
             <div className="card overflow-hidden mb-8">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+                <div className="block sm:hidden space-y-3 p-3">
+                  {filtered.map((req, i) => (
+                    <div key={req.id} className="p-4 rounded-lg border" style={{ borderColor: 'var(--color-border)', backgroundColor: i%2===0?'#fff':'rgba(0,0,0,0.01)' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-lg" style={{ color:'var(--color-secondary)' }}>#{req.queueNumber}</span>
+                        <span className={SB[req.status]}>{SL[req.status]}</span>
+                      </div>
+                      <div className="text-sm font-semibold mb-1">{req.user.name}</div>
+                      <div className="text-xs mb-2" style={{ color:'#9CA3AF' }}>{req.user.idNumber} · {req.documentType.name}</div>
+                      <div className="text-xs mb-3" style={{ color:'#6B7280' }}>{req.purpose}</div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs" style={{ color:'#9CA3AF' }}>{new Date(req.createdAt).toLocaleDateString()}</span>
+                        <button onClick={() => openModal(req)} className="btn btn-outline text-xs px-3 py-1.5">Manage</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <table className="hidden sm:table w-full text-sm">
                   <thead>
                     <tr style={{ backgroundColor:'rgba(128,0,32,0.05)', borderBottom:'1px solid var(--color-border)' }}>
                       {['Queue #','Student','Document','Purpose','Status','Submitted','Action'].map(h => (
