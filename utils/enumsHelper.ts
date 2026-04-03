@@ -1,4 +1,4 @@
-import { College } from "@/generated/prisma/enums";
+import { College } from "@prisma/client";
 
 const collegeFullNames = (college: string) => {
     switch (college) {

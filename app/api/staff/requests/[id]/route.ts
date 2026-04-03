@@ -1,7 +1,7 @@
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NotificationType } from "@/generated/prisma/enums";
+import { NotificationType } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { cacheLib, cacheKey } from "@/lib/cache";
 
