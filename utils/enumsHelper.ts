@@ -14,6 +14,8 @@ const collegeFullNames = (college: string) => {
             return "College of Business Administration & Accountancy"
         case "CHS":
             return "Collage of Health Studies"
+        case "CASS":
+            return "Collage of Arts and Social Sciences"
         default:
             return "Not a valid college."
     }

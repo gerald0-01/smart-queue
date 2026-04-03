@@ -254,7 +254,7 @@ export default function StaffDashboard() {
       {tab === 'requests' && (
         <>
           <div className="overflow-x-auto mb-6 -mx-3 px-3">
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 min-w-[500px] sm:min-w-0">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 min-w-125 sm:min-w-0">
               {(['ALL','PENDING','PROCESSING','READY','COMPLETED','REJECTED'] as const).map(s => (
                 <button key={s} onClick={() => setFilter(s)} className="card p-3 sm:p-4 text-center cursor-pointer transition-all hover:shadow-md"
                   style={{ borderTop: filter===s ? '3px solid var(--color-secondary)' : '3px solid transparent' }}>
