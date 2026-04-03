@@ -29,9 +29,22 @@ export default function NotificationBell() {
   }
 
   useEffect(() => {
-    fetchNotifications()
-    const interval = setInterval(fetchNotifications, 30000)
-    return () => clearInterval(interval)
+    let ignore = false
+    const load = async () => {
+      try {
+        const res = await axios.get("/api/student/notifications")
+        if (!ignore) setNotifications(res.data.data || [])
+      } catch { /* silent */ }
+    }
+    load()
+    const interval = setInterval(() => {
+      ignore = true
+      load().then(() => { ignore = false })
+    }, 30000)
+    return () => {
+      ignore = true
+      clearInterval(interval)
+    }
   }, [])
 
   // Close on outside click

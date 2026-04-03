@@ -95,10 +95,10 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-    const ip = getClientIP(req);
-    const { success } = await rateLimit.general.limit(ip);
+    const ip = getClientIP(req)
+    const result = rateLimit.general(ip)
 
-    if (!success) {
+    if (!result.success) {
         return NextResponse.json({ success: false, message: "Too many requests. Please try again later." }, { status: 429 });
     }
 
