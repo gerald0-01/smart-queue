@@ -32,6 +32,7 @@ const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
 }
 
 export default function AdminUsers() {
+  const [allUsers, setAllUsers] = useState<User[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +56,19 @@ export default function AdminUsers() {
     }
   }
 
-  useEffect(() => { fetchUsers(roleFilter) }, [roleFilter])
+  const fetchAllUsers = async () => {
+    try {
+      const res = await axios.get('/api/admin/users')
+      setAllUsers(res.data.data || [])
+    } catch {
+      // Silent fail - counts just won't update
+    }
+  }
+
+  useEffect(() => { 
+    fetchUsers(roleFilter) 
+    fetchAllUsers()
+  }, [roleFilter])
 
   const handleVerify = async (userId: string, verified: boolean) => {
     setActionLoading(userId)
@@ -88,8 +101,8 @@ export default function AdminUsers() {
     u.email.toLowerCase().includes(search.toLowerCase())
   )
 
-  const roleCounts: Record<string, number> = { ALL: users.length }
-  for (const u of users) roleCounts[u.role] = (roleCounts[u.role] ?? 0) + 1
+  const roleCounts: Record<string, number> = { ALL: allUsers.length }
+  for (const u of allUsers) roleCounts[u.role] = (roleCounts[u.role] ?? 0) + 1
 
   return (
     <div>
@@ -173,21 +186,16 @@ export default function AdminUsers() {
                         {user.college ?? '—'}{user.course ? ` · ${user.course}` : ''}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="badge text-xs"
-                          style={{ backgroundColor: user.verified ? '#D1FAE5' : '#FEE2E2', color: user.verified ? '#065F46' : '#991B1B' }}>
-                          {user.verified ? '✓ Verified' : '✕ Unverified'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#9CA3AF' }}>
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="badge text-xs whitespace-nowrap"
+                            style={{ backgroundColor: user.verified ? '#D1FAE5' : '#FEE2E2', color: user.verified ? '#065F46' : '#991B1B' }}>
+                            {user.verified ? '✓ Verified' : '✕ Unverified'}
+                          </span>
                           {!user.verified ? (
                             <button
                               onClick={() => handleVerify(user.id, true)}
                               disabled={actionLoading === user.id}
-                              className="btn text-xs px-2 py-1"
+                              className="btn text-xs px-3 py-1 whitespace-nowrap"
                               style={{ backgroundColor: '#D1FAE5', color: '#065F46', border: 'none' }}>
                               {actionLoading === user.id ? '...' : 'Verify'}
                             </button>
@@ -195,7 +203,7 @@ export default function AdminUsers() {
                             <button
                               onClick={() => handleVerify(user.id, false)}
                               disabled={actionLoading === user.id}
-                              className="btn text-xs px-2 py-1"
+                              className="btn text-xs px-3 py-1 whitespace-nowrap"
                               style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: 'none' }}>
                               {actionLoading === user.id ? '...' : 'Revoke'}
                             </button>

@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       { status: 400 }
     )
 
-    if (role === 'STUDENT' || role === 'STAFF' || role === 'ALUMNI') {
+    if (role === 'STUDENT' || role === 'STAFF') {
       const normalizedEmail = email.toLowerCase().trim()
       const domain = normalizedEmail.split("@")[1]
 

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl
     const role = searchParams.get("role")
     const verified = searchParams.get("verified")
-    const cacheLibKeyStr = cacheLibKey("users", `${role || "all"}:${verified || "all"}`)
+    const cacheLibKeyStr = cacheKey("users", `${role || "all"}:${verified || "all"}`)
 
     const cacheLibd = await cacheLib.get<{ success: boolean; data: unknown[] }>(cacheLibKeyStr)
     if (cacheLibd) {
@@ -43,8 +43,6 @@ export async function GET(req: NextRequest) {
             },
             orderBy: { createdAt: "desc" },
         })
-
-        return NextResponse.json({ success: true, data: users }, { status: 200 })
 
         const response = { success: true, data: users }
         await cacheLib.set(cacheLibKeyStr, response, 30)
@@ -87,8 +85,6 @@ export async function PATCH(req: NextRequest) {
             await sendStaffVerifiedEmail(user.email).catch(() => {/* non-fatal */})
         }
 
-        return NextResponse.json({ success: true, message: `User ${verified ? "verified" : "unverified"} successfully` }, { status: 200 })
-
         await cacheLib.deletePattern("users:*")
 
         return NextResponse.json({ success: true, message: `User ${verified ? "verified" : "unverified"} successfully` }, { status: 200 })
@@ -122,8 +118,6 @@ export async function DELETE(req: NextRequest) {
         }
 
         await prisma.user.delete({ where: { id: userId } })
-
-        return NextResponse.json({ success: true, message: "User deleted" }, { status: 200 })
 
         await cacheLib.deletePattern("users:*")
 
