@@ -2,7 +2,11 @@
 import ErrorCard from "@/components/ErrorCard"
 import { useSession } from "next-auth/react"
 import axios from "axios"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
+import jsPDF from "jspdf"
+import html2canvas from "html2canvas"
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, TextRun, AlignmentType } from "docx"
+import { saveAs } from "file-saver"
 
 type RequestStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'COMPLETED' | 'REJECTED'
 
@@ -27,108 +31,6 @@ const SC: Record<string, string> = { PENDING:'#92400E', PROCESSING:'#1E40AF', RE
 
 type Tab = 'requests' | 'analytics'
 
-function buildPrintHTML(report: ReportData): string {
-  const date = new Date(report.date).toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
-
-  // College breakdown
-  const collegeMap: Record<string, number> = {}
-  const courseMap: Record<string, number> = {}
-  for (const r of report.requests) {
-    const col = r.user.college || 'N/A'
-    const crs = r.user.course || 'N/A'
-    collegeMap[col] = (collegeMap[col] ?? 0) + 1
-    courseMap[crs] = (courseMap[crs] ?? 0) + 1
-  }
-  const collegeRows = Object.entries(collegeMap).sort((a,b) => b[1]-a[1])
-    .map(([k,v]) => `<tr><td>${k}</td><td style="text-align:right;font-weight:700">${v}</td></tr>`).join('')
-  const courseRows = Object.entries(courseMap).sort((a,b) => b[1]-a[1]).slice(0,10)
-    .map(([k,v]) => `<tr><td>${k}</td><td style="text-align:right;font-weight:700">${v}</td></tr>`).join('')
-
-  const rows = report.requests.map((r, i) => `
-    <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
-      <td>#${r.queueNumber}</td>
-      <td>${r.user.name}</td>
-      <td>${r.user.idNumber}</td>
-      <td>${r.user.college ?? '—'}</td>
-      <td>${r.user.course ?? '—'}</td>
-      <td>${r.documentType.name}</td>
-      <td>${r.purpose}</td>
-      <td>${r.status}</td>
-      <td>${new Date(r.createdAt).toLocaleTimeString()}</td>
-    </tr>`).join('')
-
-  return `<!DOCTYPE html><html><head><title>Smart Queue Report — ${date}</title>
-  <style>
-    *{box-sizing:border-box}
-    body{font-family:Arial,sans-serif;margin:32px;color:#1f2937;font-size:13px}
-    h2{color:#800020;font-size:13px;font-weight:900;margin:24px 0 8px;text-transform:uppercase;letter-spacing:.5px}
-    .header{display:table;width:100%;border-bottom:3px solid #800020;padding-bottom:12px;margin-bottom:20px}
-    .header-left{display:table-cell;vertical-align:middle}
-    .header-right{display:table-cell;vertical-align:middle;text-align:right;font-size:11px;color:#6b7280}
-    .brand{font-size:20px;font-weight:900;color:#800020}
-    .sub{font-size:10px;color:#6b7280;margin-top:2px}
-    .summary{display:table;width:100%;margin-bottom:20px;border-spacing:8px}
-    .summary-row{display:table-row}
-    .stat{display:table-cell;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center;width:16.6%}
-    .stat-val{font-size:20px;font-weight:900;color:#800020}
-    .stat-lbl{font-size:9px;color:#6b7280;text-transform:uppercase;margin-top:2px}
-    .two-col{display:table;width:100%;margin-bottom:20px}
-    .col{display:table-cell;width:50%;vertical-align:top;padding-right:12px}
-    .col:last-child{padding-right:0;padding-left:12px}
-    table.data{width:100%;border-collapse:collapse;font-size:11px}
-    table.data th{background:#800020;color:#fff;padding:7px 9px;text-align:left;font-size:10px;text-transform:uppercase}
-    table.data td{padding:6px 9px;border-bottom:1px solid #e5e7eb}
-    table.mini{width:100%;border-collapse:collapse;font-size:11px}
-    table.mini th{background:#f3f4f6;color:#374151;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase}
-    table.mini td{padding:5px 8px;border-bottom:1px solid #f3f4f6}
-    .footer{margin-top:24px;font-size:10px;color:#9ca3af;text-align:center;border-top:1px solid #e5e7eb;padding-top:12px}
-    @media print{
-      body{margin:16px}
-      @page{size:A4 landscape;margin:16mm}
-      button{display:none!important}
-    }
-  </style></head><body>
-  <div class="header">
-    <div class="header-left">
-      <div class="brand">Smart Queue</div>
-      <div class="sub">MSU-IIT Document Request System — Daily Report</div>
-    </div>
-    <div class="header-right">${date}<br/>Generated: ${new Date().toLocaleString()}</div>
-  </div>
-
-  <h2>Summary</h2>
-  <table style="width:100%;border-collapse:separate;border-spacing:8px;margin-bottom:16px">
-    <tr>
-      ${[['Total',report.summary.total,'#800020'],['Pending',report.summary.pending,'#92400e'],['Processing',report.summary.processing,'#1e40af'],['Ready',report.summary.ready,'#065f46'],['Completed',report.summary.completed,'#5b21b6'],['Rejected',report.summary.rejected,'#991b1b']]
-        .map(([l,v,c]) => `<td style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:20px;font-weight:900;color:${c}">${v}</div>
-          <div style="font-size:9px;color:#6b7280;text-transform:uppercase;margin-top:2px">${l}</div>
-        </td>`).join('')}
-    </tr>
-  </table>
-
-  <div class="two-col">
-    <div class="col">
-      <h2>By College</h2>
-      <table class="mini"><thead><tr><th>College</th><th style="text-align:right">Count</th></tr></thead>
-      <tbody>${collegeRows || '<tr><td colspan="2" style="color:#9ca3af">No data</td></tr>'}</tbody></table>
-    </div>
-    <div class="col">
-      <h2>By Course (Top 10)</h2>
-      <table class="mini"><thead><tr><th>Course</th><th style="text-align:right">Count</th></tr></thead>
-      <tbody>${courseRows || '<tr><td colspan="2" style="color:#9ca3af">No data</td></tr>'}</tbody></table>
-    </div>
-  </div>
-
-  <h2>Requests</h2>
-  <table class="data">
-    <thead><tr><th>Queue #</th><th>Student</th><th>ID Number</th><th>College</th><th>Course</th><th>Document</th><th>Purpose</th><th>Status</th><th>Time</th></tr></thead>
-    <tbody>${rows || '<tr><td colspan="9" style="text-align:center;color:#9ca3af;padding:20px">No requests for this date.</td></tr>'}</tbody>
-  </table>
-  <div class="footer">Smart Queue — MSU-IIT Document Request System</div>
-  </body></html>`
-}
-
 export default function StaffDashboard() {
   const { data: session } = useSession()
   const [requests, setRequests] = useState<Request[]>([])
@@ -141,11 +43,13 @@ export default function StaffDashboard() {
   const [updating, setUpdating] = useState(false)
   const [rejectMode, setRejectMode] = useState(false)
   const [tab, setTab] = useState<Tab>('requests')
-  // Analytics
   const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10))
   const [report, setReport] = useState<ReportData | null>(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
+  const analyticsRef = useRef<HTMLDivElement>(null)
+  const [exporting, setExporting] = useState(false)
+  const [showWatermark, setShowWatermark] = useState(false)
 
   const fetchRequests = async () => {
     setLoading(true); setError(null)
@@ -181,31 +85,133 @@ export default function StaffDashboard() {
   }
 
   const counts = { ALL: requests.length, PENDING: requests.filter(r=>r.status==='PENDING').length, PROCESSING: requests.filter(r=>r.status==='PROCESSING').length, READY: requests.filter(r=>r.status==='READY').length, COMPLETED: requests.filter(r=>r.status==='COMPLETED').length, REJECTED: requests.filter(r=>r.status==='REJECTED').length }
-
-  // Today's count
   const today = new Date().toDateString()
   const todayCount = requests.filter(r => new Date(r.createdAt).toDateString() === today).length
 
-  // ── Export helpers ──────────────────────────────────────────────────────────
-  const handlePrint = () => {
-    if (!report) return
-    const win = window.open('', '_blank')!
-    win.document.write(buildPrintHTML(report))
-    win.document.close()
-    win.focus()
-    win.print()
+  // Export functions
+  const handlePrint = async () => {
+    if (!analyticsRef.current) return
+    setExporting(true)
+    try {
+      const canvas = await html2canvas(analyticsRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const imgWidth = 210
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
+      pdf.autoPrint()
+      window.open(pdf.output('bloburl'), '_blank')
+    } catch (err) {
+      console.error('Print error:', err)
+      alert('Failed to print. Please try again.')
+    }
+    setExporting(false)
   }
 
-  const handleDownloadDocx = () => {
+  const handleDownloadPDF = async () => {
+    if (!analyticsRef.current) return
+    setExporting(true)
+    try {
+      const canvas = await html2canvas(analyticsRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const imgWidth = 210
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+      let position = 0
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= 297
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= 297
+      }
+      pdf.save(`smart-queue-analytics-${reportDate}.pdf`)
+    } catch (err) {
+      console.error('PDF export error:', err)
+      alert('Failed to export PDF. Please try again.')
+    }
+    setExporting(false)
+  }
+
+  const handleDownloadImage = async () => {
+    if (!analyticsRef.current) return
+    setExporting(true)
+    try {
+      const canvas = await html2canvas(analyticsRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
+      canvas.toBlob((blob) => { if (blob) { saveAs(blob, `smart-queue-analytics-${reportDate}.png`) } }, 'image/png')
+    } catch (err) {
+      console.error('Image export error:', err)
+      alert('Failed to export image. Please try again.')
+    }
+    setExporting(false)
+  }
+
+  const handleDownloadDocx = async () => {
     if (!report) return
-    const date = new Date(report.date).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
-    const rows = report.requests.map(r =>
-      `${r.queueNumber}\t${r.user.name}\t${r.user.idNumber}\t${r.user.college??'—'}\t${r.user.course??'—'}\t${r.documentType.name}\t${r.purpose}\t${r.status}\t${new Date(r.createdAt).toLocaleTimeString()}`
-    ).join('\n')
-    const text = `SMART QUEUE — DAILY REPORT\nMSU-IIT Document Request System\nDate: ${date}\n\nSUMMARY\nTotal: ${report.summary.total}\tPending: ${report.summary.pending}\tProcessing: ${report.summary.processing}\tReady: ${report.summary.ready}\tCompleted: ${report.summary.completed}\tRejected: ${report.summary.rejected}\n\nREQUESTS\nQueue #\tName\tID Number\tCollege\tCourse\tDocument\tPurpose\tStatus\tTime\n${rows}`
-    const blob = new Blob([text], { type: 'application/msword' })
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-    a.download = `smart-queue-report-${reportDate}.doc`; a.click()
+    setExporting(true)
+    try {
+      const date = new Date(report.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+      const collegeMap: Record<string, number> = {}
+      const courseMap: Record<string, number> = {}
+      for (const r of report.requests) {
+        const col = r.user.college || 'N/A'
+        const crs = r.user.course || 'N/A'
+        collegeMap[col] = (collegeMap[col] ?? 0) + 1
+        courseMap[crs] = (courseMap[crs] ?? 0) + 1
+      }
+      const colleges = Object.entries(collegeMap).sort((a, b) => b[1] - a[1])
+      const courses = Object.entries(courseMap).sort((a, b) => b[1] - a[1]).slice(0, 10)
+
+      const children: any[] = [
+        new Paragraph({ children: [new TextRun({ text: 'SMART QUEUE - ANALYTICS REPORT', bold: true, size: 32 })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
+        new Paragraph({ children: [new TextRun({ text: 'MSU-IIT Document Request System', size: 24, color: '666666' })], alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+        new Paragraph({ children: [new TextRun({ text: `Report Date: ${date}`, size: 22 })], spacing: { after: 300 } }),
+        new Paragraph({ children: [new TextRun({ text: 'SUMMARY', bold: true, size: 24 })], spacing: { after: 200 } })
+      ]
+
+      const summaryRows = [
+        new TableRow({ children: [new TableCell({ children: [new Paragraph('Status')] }), new TableCell({ children: [new Paragraph('Count')] })] }),
+        new TableRow({ children: [new TableCell({ children: [new Paragraph('Total')] }), new TableCell({ children: [new Paragraph(String(report.summary.total))] })] }),
+        new TableRow({ children: [new TableCell({ children: [new Paragraph('Pending')] }), new TableCell({ children: [new Paragraph(String(report.summary.pending))] })] }),
+        new TableRow({ children: [new TableCell({ children: [new Paragraph('Processing')] }), new TableCell({ children: [new Paragraph(String(report.summary.processing))] })] }),
+        new TableRow({ children: [new TableCell({ children: [new Paragraph('Ready')] }), new TableCell({ children: [new Paragraph(String(report.summary.ready))] })] }),
+        new TableRow({ children: [new TableCell({ children: [new Paragraph('Completed')] }), new TableCell({ children: [new Paragraph(String(report.summary.completed))] })] }),
+        new TableRow({ children: [new TableCell({ children: [new Paragraph('Rejected')] }), new TableCell({ children: [new Paragraph(String(report.summary.rejected))] })] })
+      ]
+      children.push(new Table({ rows: summaryRows, width: { size: 100, type: WidthType.PERCENTAGE } }))
+      children.push(new Paragraph({ text: '', spacing: { before: 400 } }))
+
+      if (colleges.length > 0) {
+        children.push(new Paragraph({ children: [new TextRun({ text: 'BY COLLEGE', bold: true, size: 24 })], spacing: { after: 200 } }))
+        const collegeRows = colleges.map(([col, cnt]) => new TableRow({ children: [new TableCell({ children: [new Paragraph(col)] }), new TableCell({ children: [new Paragraph(String(cnt))] })] }))
+        children.push(new Table({ rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph('College')] }), new TableCell({ children: [new Paragraph('Count')] })] }), ...collegeRows], width: { size: 100, type: WidthType.PERCENTAGE } }))
+        children.push(new Paragraph({ text: '', spacing: { before: 400 } }))
+      }
+
+      if (courses.length > 0) {
+        children.push(new Paragraph({ children: [new TextRun({ text: 'BY COURSE (Top 10)', bold: true, size: 24 })], spacing: { after: 200 } }))
+        const courseRows = courses.map(([crs, cnt]) => new TableRow({ children: [new TableCell({ children: [new Paragraph(crs)] }), new TableCell({ children: [new Paragraph(String(cnt))] })] }))
+        children.push(new Table({ rows: [new TableRow({ children: [new TableCell({ children: [new Paragraph('Course')] }), new TableCell({ children: [new Paragraph('Count')] })] }), ...courseRows], width: { size: 100, type: WidthType.PERCENTAGE } }))
+        children.push(new Paragraph({ text: '', spacing: { before: 400 } }))
+      }
+
+      if (report.requests.length > 0) {
+        children.push(new Paragraph({ children: [new TextRun({ text: 'REQUESTS', bold: true, size: 24 })], spacing: { after: 200 } }))
+        const requestHeaderRow = new TableRow({ children: [new TableCell({ children: [new Paragraph('Queue #')] }), new TableCell({ children: [new Paragraph('Student')] }), new TableCell({ children: [new Paragraph('ID Number')] }), new TableCell({ children: [new Paragraph('Document')] }), new TableCell({ children: [new Paragraph('Status')] })] })
+        const requestRows = report.requests.map(r => new TableRow({ children: [new TableCell({ children: [new Paragraph(String(r.queueNumber))] }), new TableCell({ children: [new Paragraph(r.user.name)] }), new TableCell({ children: [new Paragraph(r.user.idNumber)] }), new TableCell({ children: [new Paragraph(r.documentType.name)] }), new TableCell({ children: [new Paragraph(r.status)] })] }))
+        children.push(new Table({ rows: [requestHeaderRow, ...requestRows], width: { size: 100, type: WidthType.PERCENTAGE } }))
+      }
+
+      const doc = new Document({ sections: [{ children }] })
+      const blob = await Packer.toBlob(doc)
+      saveAs(blob, `smart-queue-report-${reportDate}.docx`)
+    } catch (err) {
+      console.error('DOCX export error:', err)
+      alert('Failed to export DOCX. Please try again.')
+    }
+    setExporting(false)
   }
 
   const handleDownloadCSV = () => {
@@ -219,20 +225,9 @@ export default function StaffDashboard() {
     a.download = `smart-queue-report-${reportDate}.csv`; a.click()
   }
 
-  const handleDownloadPDF = () => {
-    if (!report) return
-    const win = window.open('', '_blank')!
-    const html = buildPrintHTML(report)
-    // Inject auto-print + close so "Save as PDF" dialog opens immediately
-    const withAutoprint = html.replace('</body>', `<script>window.onload=function(){window.print();window.onafterprint=function(){window.close()}}<\/script></body>`)
-    win.document.write(withAutoprint)
-    win.document.close()
-  }
-
   return (
     <>
     <div className="min-h-[calc(100vh-5rem)] px-4 py-8 max-w-6xl mx-auto fade-in">
-      {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
           <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-tertiary)' }}>Staff Portal</p>
@@ -240,14 +235,12 @@ export default function StaffDashboard() {
           <div className="gold-divider mt-2" style={{ margin: '0.5rem 0 0' }} />
           <p className="text-sm mt-2" style={{ color: '#6B7280' }}>Welcome, {session?.user.name}</p>
         </div>
-        {/* Today's queue count */}
         <div className="card px-5 py-3 text-center" style={{ borderTop: '3px solid var(--color-tertiary)' }}>
           <div className="text-2xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>{todayCount}</div>
           <div className="text-xs font-semibold" style={{ color: '#6B7280' }}>Today&apos;s Queue</div>
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit" style={{ backgroundColor: '#F3F4F6' }}>
         {(['requests', 'analytics'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
@@ -258,10 +251,8 @@ export default function StaffDashboard() {
         ))}
       </div>
 
-      {/* ── REQUESTS TAB ── */}
       {tab === 'requests' && (
         <>
-          {/* Status filter cards */}
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
             {(['ALL','PENDING','PROCESSING','READY','COMPLETED','REJECTED'] as const).map(s => (
               <button key={s} onClick={() => setFilter(s)} className="card p-4 text-center cursor-pointer transition-all hover:shadow-md"
@@ -272,7 +263,6 @@ export default function StaffDashboard() {
             ))}
           </div>
 
-          {/* Requests table */}
           {loading ? (
             <div className="flex justify-center py-16"><div className="spinner" style={{ width:'2.5rem', height:'2.5rem', borderWidth:'4px' }} /></div>
           ) : error ? (
@@ -308,7 +298,6 @@ export default function StaffDashboard() {
             </div>
           )}
 
-          {/* Recent activity */}
           {!loading && recent.length > 0 && (
             <div className="card p-6">
               <h2 className="font-extrabold text-base mb-4" style={{ color:'var(--color-secondary)' }}>Recent Activity</h2>
@@ -316,7 +305,7 @@ export default function StaffDashboard() {
                 {recent.map(req => (
                   <div key={req.id} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor:'#F9FAFB' }}>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold flex-shrink-0"
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0"
                         style={{ backgroundColor:'rgba(128,0,32,0.08)', color:'var(--color-secondary)' }}>#{req.queueNumber}</div>
                       <div>
                         <p className="text-sm font-semibold" style={{ color:'#374151' }}>{req.user.name} — {req.documentType.name}</p>
@@ -332,10 +321,15 @@ export default function StaffDashboard() {
         </>
       )}
 
-      {/* ── ANALYTICS TAB ── */}
       {tab === 'analytics' && (
-        <div>
-          {/* Date picker + export */}
+        <div ref={analyticsRef} style={{ backgroundColor: '#fff', padding: '1rem', position: 'relative' }}>
+          {showWatermark && (
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) rotate(-30deg)', 
+              fontSize: '4rem', fontWeight: 'bold', color: 'rgba(128, 0, 32, 0.1)', 
+              whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 999 }}>
+              SMART QUEUE • CONFIDENTIAL
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-3 mb-6">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold" style={{ color:'#374151' }}>Report Date</label>
@@ -343,10 +337,21 @@ export default function StaffDashboard() {
                 style={{ padding:'0.5rem 0.75rem', border:'1.5px solid var(--color-border)', borderRadius:'8px', fontSize:'0.9rem', outline:'none' }} />
             </div>
             <div className="flex gap-2 mt-4">
-              <button onClick={handleDownloadPDF} className="btn btn-primary text-xs px-4 py-2">📥 PDF</button>
-              <button onClick={handlePrint} className="btn btn-outline text-xs px-4 py-2">🖨 Print</button>
-              <button onClick={handleDownloadDocx} className="btn btn-outline text-xs px-4 py-2">📄 DOC</button>
-              <button onClick={handleDownloadCSV} className="btn btn-outline text-xs px-4 py-2">📊 CSV</button>
+              <button onClick={handleDownloadPDF} disabled={exporting} className="btn btn-primary text-xs px-4 py-2">
+                {exporting ? '⏳...' : '📥 PDF'}
+              </button>
+              <button onClick={handlePrint} disabled={exporting} className="btn btn-outline text-xs px-4 py-2">
+                🖨 Print
+              </button>
+              <button onClick={handleDownloadImage} disabled={exporting} className="btn btn-outline text-xs px-4 py-2">
+                🖼 PNG
+              </button>
+              <button onClick={handleDownloadDocx} disabled={exporting} className="btn btn-outline text-xs px-4 py-2">
+                📄 DOCX
+              </button>
+              <button onClick={handleDownloadCSV} disabled={exporting} className="btn btn-outline text-xs px-4 py-2">
+                📊 CSV
+              </button>
             </div>
           </div>
 
@@ -355,7 +360,6 @@ export default function StaffDashboard() {
 
           {report && !reportLoading && (
             <>
-              {/* Summary cards */}
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
                 {(['total','pending','processing','ready','completed','rejected'] as const).map(k => (
                   <div key={k} className="card p-4 text-center">
@@ -367,7 +371,6 @@ export default function StaffDashboard() {
                 ))}
               </div>
 
-              {/* Bar chart */}
               <div className="card p-6 mb-6">
                 <h2 className="font-extrabold text-base mb-4" style={{ color:'var(--color-secondary)' }}>Status Breakdown</h2>
                 <div className="flex flex-col gap-3">
@@ -389,7 +392,6 @@ export default function StaffDashboard() {
                 </div>
               </div>
 
-              {/* College & Course breakdown */}
               {report.requests.length > 0 && (() => {
                 const collegeMap: Record<string, number> = {}
                 const courseMap: Record<string, number> = {}
@@ -485,10 +487,8 @@ export default function StaffDashboard() {
           )}
         </div>
       )}
-
     </div>
 
-    {/* ── MANAGE MODAL ── */}
     {selected && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor:'rgba(0,0,0,0.5)' }}
         onClick={e => { if (e.target === e.currentTarget) closeModal() }}>
