@@ -37,6 +37,7 @@ enum College {
   CHS
   CEBA
   CED
+  CASS // I added this most recently which is why i made the migration
 }
 
 enum NotificationType {
