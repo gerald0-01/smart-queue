@@ -27,7 +27,106 @@ const SB: Record<RequestStatus, string> = { PENDING:'badge badge-pending', PROCE
 const NS: Record<RequestStatus, RequestStatus | null> = { PENDING:'PROCESSING', PROCESSING:'READY', READY:'COMPLETED', COMPLETED:null, REJECTED:null }
 const SC: Record<string, string> = { PENDING:'#92400E', PROCESSING:'#1E40AF', READY:'#065F46', COMPLETED:'#5B21B6', REJECTED:'#991B1B' }
 
-type Tab = 'requests' | 'analytics'
+type Tab = 'requests' | 'history' | 'analytics'
+
+// ── History tab ──────────────────────────────────────────────────────────────
+function HistoryTab({ fetchRequests }: { fetchRequests: (scope: string, date?: string) => Promise<void> }) {
+  const [histDate, setHistDate] = useState(
+    new Date(Date.now() - 86400000).toISOString().slice(0, 10) // yesterday default
+  )
+  const [histRequests, setHistRequests] = useState<Request[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = async (date: string) => {
+    setLoading(true); setError(null)
+    try {
+      const r = await axios.get(`/api/staff/requests?scope=date&date=${date}`)
+      setHistRequests(r.data.data || [])
+    } catch { setError("Failed to load history.") }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load(histDate) }, [histDate])
+
+  const counts: Record<string, number> = { total: histRequests.length }
+  for (const r of histRequests) counts[r.status] = (counts[r.status] ?? 0) + 1
+
+  return (
+    <div>
+      {/* Date picker */}
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-bold uppercase tracking-wide" style={{ color:'#374151' }}>Date</label>
+          <input type="date" value={histDate} onChange={e => setHistDate(e.target.value)}
+            max={new Date().toISOString().slice(0,10)}
+            style={{ padding:'0.5rem 0.75rem', border:'1.5px solid var(--color-border)', borderRadius:'8px', fontSize:'0.9rem', outline:'none' }} />
+        </div>
+        <div className="flex gap-2 mt-4">
+          {counts.total > 0 && (
+            <span className="text-sm font-semibold px-3 py-1.5 rounded-full"
+              style={{ backgroundColor:'rgba(128,0,32,0.07)', color:'var(--color-secondary)' }}>
+              {counts.total} request{counts.total !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {loading && <div className="flex justify-center py-12"><div className="spinner" style={{ width:'2.5rem', height:'2.5rem', borderWidth:'4px' }} /></div>}
+      {error && <ErrorCard message={error} onRetry={() => load(histDate)} />}
+
+      {!loading && !error && histRequests.length === 0 && (
+        <div className="card p-10 text-center">
+          <div className="text-4xl mb-3">🗂️</div>
+          <p className="font-semibold text-sm" style={{ color:'#6B7280' }}>No requests for this date.</p>
+        </div>
+      )}
+
+      {!loading && histRequests.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            {/* Mobile cards */}
+            <div className="block sm:hidden space-y-3 p-3">
+              {histRequests.map((req, i) => (
+                <div key={req.id} className="p-4 rounded-xl border" style={{ borderColor:'var(--color-border)', backgroundColor: i%2===0?'#fff':'rgba(0,0,0,0.01)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-black text-lg" style={{ color:'var(--color-secondary)' }}>#{req.queueNumber}</span>
+                    <span className={SB[req.status]}>{SL[req.status]}</span>
+                  </div>
+                  <div className="text-sm font-semibold mb-0.5">{req.user.name}</div>
+                  <div className="text-xs mb-1" style={{ color:'#9CA3AF' }}>{req.user.idNumber} · {req.documentType.name}</div>
+                  <div className="text-xs" style={{ color:'#6B7280' }}>{req.purpose}</div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <table className="hidden sm:table w-full text-sm">
+              <thead>
+                <tr style={{ backgroundColor:'rgba(128,0,32,0.05)', borderBottom:'1px solid var(--color-border)' }}>
+                  {['Queue #','Student','Document','Purpose','Status','Time'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide" style={{ color:'var(--color-secondary)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {histRequests.map((req, i) => (
+                  <tr key={req.id} style={{ borderBottom:'1px solid var(--color-border)', backgroundColor: i%2===0?'#fff':'rgba(0,0,0,0.01)' }}>
+                    <td className="px-4 py-3 font-bold" style={{ color:'var(--color-secondary)' }}>#{req.queueNumber}</td>
+                    <td className="px-4 py-3"><div className="font-semibold">{req.user.name}</div><div className="text-xs" style={{ color:'#9CA3AF' }}>{req.user.idNumber}</div></td>
+                    <td className="px-4 py-3">{req.documentType.name}</td>
+                    <td className="px-4 py-3 max-w-xs truncate" style={{ color:'#6B7280' }}>{req.purpose}</td>
+                    <td className="px-4 py-3"><span className={SB[req.status]}>{SL[req.status]}</span></td>
+                    <td className="px-4 py-3 text-xs" style={{ color:'#9CA3AF' }}>{new Date(req.createdAt).toLocaleTimeString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function buildReportHTML(report: ReportData): string {
   const date = new Date(report.date).toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
@@ -207,9 +306,14 @@ export default function StaffDashboard() {
   const [reportError, setReportError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
-  const fetchRequests = async () => {
+  const fetchRequests = async (scope = 'today', date?: string) => {
     setLoading(true); setError(null)
-    try { const r = await axios.get("/api/staff/requests"); setRequests(r.data.data || []) }
+    try {
+      const params = new URLSearchParams({ scope })
+      if (date) params.set('date', date)
+      const r = await axios.get(`/api/staff/requests?${params}`)
+      setRequests(r.data.data || [])
+    }
     catch { setError("Failed to load requests.") }
     finally { setLoading(false) }
   }
@@ -221,7 +325,7 @@ export default function StaffDashboard() {
     finally { setReportLoading(false) }
   }
 
-  useEffect(() => { fetchRequests() }, [])
+  useEffect(() => { fetchRequests('today') }, [])
   useEffect(() => { if (tab === 'analytics') fetchReport(reportDate) }, [tab, reportDate])
 
   const filtered = filter === 'ALL' ? requests : requests.filter(r => r.status === filter)
@@ -235,7 +339,7 @@ export default function StaffDashboard() {
     setUpdating(true)
     try {
       await axios.patch(`/api/staff/requests/${selected.id}`, { status: newStatus, message: actionMsg || undefined, availablePickUp: pickupDate ? new Date(pickupDate).toISOString() : undefined })
-      await fetchRequests(); closeModal()
+      await fetchRequests('today'); closeModal()
     } catch { alert("Failed to update request.") }
     finally { setUpdating(false) }
   }
@@ -457,11 +561,11 @@ export default function StaffDashboard() {
       </div>
 
       <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit" style={{ backgroundColor: '#F3F4F6' }}>
-        {(['requests', 'analytics'] as Tab[]).map(t => (
+        {(['requests', 'history', 'analytics'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className="px-4 sm:px-5 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap"
             style={{ backgroundColor: tab===t?'#fff':'transparent', color: tab===t?'var(--color-secondary)':'#6B7280', boxShadow: tab===t?'0 1px 4px rgba(0,0,0,0.08)':'none', border:'none', cursor:'pointer' }}>
-            {t === 'requests' ? '📋 Requests' : '📊 Analytics'}
+            {t === 'requests' ? "📋 Today's Queue" : t === 'history' ? '🗂 History' : '📊 Analytics'}
           </button>
         ))}
       </div>
@@ -483,7 +587,7 @@ export default function StaffDashboard() {
           {loading ? (
             <div className="flex justify-center py-16"><div className="spinner" style={{ width:'2.5rem', height:'2.5rem', borderWidth:'4px' }} /></div>
           ) : error ? (
-            <ErrorCard message={error} onRetry={fetchRequests} />
+            <ErrorCard message={error} onRetry={() => fetchRequests('today')} />
           ) : filtered.length === 0 ? (
             <div className="card p-8 sm:p-12 text-center"><div className="text-4xl mb-3">📭</div><p className="font-semibold text-sm sm:text-base" style={{ color:'#6B7280' }}>No requests found.</p></div>
           ) : (
@@ -554,6 +658,8 @@ export default function StaffDashboard() {
           )}
         </>
       )}
+
+      {tab === 'history' && <HistoryTab fetchRequests={fetchRequests} />}
 
       {tab === 'analytics' && (
         <div style={{ backgroundColor: '#fff', padding: '0.5rem' }}>

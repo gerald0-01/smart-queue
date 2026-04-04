@@ -1,6 +1,8 @@
 {
-  "buildCommand": "prisma generate && next build",
-  "installCommand": "npm install",
-  "framework": "nextjs",
-  "outputDirectory": ".next"
+  "crons": [
+    {
+      "path": "/api/cron/rollover",
+      "schedule": "0 16 * * *"
+    }
+  ]
 }
