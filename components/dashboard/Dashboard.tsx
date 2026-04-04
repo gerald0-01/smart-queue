@@ -23,92 +23,124 @@ const STATUS_BADGE: Record<RequestStatus, string> = {
   REJECTED:   'badge badge-rejected',
 }
 
+const STATUS_LABEL: Record<RequestStatus, string> = {
+  PENDING: 'Pending', PROCESSING: 'Processing', READY: 'Ready',
+  COMPLETED: 'Completed', REJECTED: 'Rejected',
+}
+
 export default function Dashboard() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [recent, setRecent] = useState<Request[]>([])
+  const [recentLoading, setRecentLoading] = useState(true)
 
   useEffect(() => {
     if (status === 'authenticated') {
       axios.get("/api/student/my-requests")
         .then(res => {
           const all: Request[] = res.data.data || []
-          // Most recent 5, newest first
           setRecent([...all].reverse().slice(0, 5))
         })
         .catch(() => {})
+        .finally(() => setRecentLoading(false))
     }
   }, [status])
 
   if (!session && status !== 'loading') { router.push("/login"); return null }
   if (status === 'loading') return null
 
-  return (
-    <div className="min-h-[calc(100vh-5rem)] px-3 sm:px-4 py-6 sm:py-8 max-w-3xl mx-auto fade-in">
+  const firstName = session?.user.name?.split(' ')[0] ?? ''
+  const activeCount = recent.filter(r => r.status !== 'COMPLETED' && r.status !== 'REJECTED').length
 
-      {/* Welcome */}
-      <div className="mb-6 sm:mb-8">
-        <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-tertiary)' }}>Welcome back</p>
-        <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-secondary)' }}>
-          {session?.user.name}
-        </h1>
-        <div className="gold-divider mt-2" style={{ margin: '0.5rem 0 0' }} />
+  return (
+    <div className="px-4 py-6 max-w-2xl mx-auto fade-in">
+
+      {/* ── Greeting banner ── */}
+      <div className="rounded-2xl p-5 mb-5 relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, var(--color-secondary) 0%, var(--color-dark) 100%)' }}>
+        <div className="absolute inset-0 opacity-5"
+          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23fff' fill-opacity='1'%3E%3Cpath d='M20 20.5V18H0v5h5v5H0v5h20v-5h15v-5H20v-.5zm-5 4.5v-4h5v4h-5zM0 5h10v5H0V5zm15 0h10v5H15V5zm15 0h10v5H30V5z'/%3E%3C/g%3E%3C/svg%3E\")" }} />
+        <div className="relative z-10">
+          <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            Welcome back
+          </p>
+          <h1 className="text-2xl font-black text-white mb-3">{firstName}</h1>
+          {activeCount > 0 ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold"
+              style={{ backgroundColor: 'rgba(212,175,55,0.2)', color: 'var(--color-tertiary)', border: '1px solid rgba(212,175,55,0.3)' }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+              {activeCount} active request{activeCount > 1 ? 's' : ''}
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold"
+              style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+              No active requests
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Action cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
+      {/* ── Quick actions ── */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
         {[
-          { href: "/dashboard/request", icon: "📄", label: "Request",      desc: "Submit a new document request.", border: 'var(--color-secondary)', bg: 'rgba(128,0,32,0.08)' },
-          { href: "/dashboard/queue",   icon: "🔢", label: "Queue Status", desc: "Check your active queue position.", border: 'var(--color-tertiary)', bg: 'rgba(212,175,55,0.1)' },
-          { href: "/dashboard/track",   icon: "📋", label: "Track",        desc: "View all your request history.", border: '#6B7280', bg: 'rgba(107,114,128,0.08)' },
+          { href: '/dashboard/request', icon: '📄', label: 'Request', color: 'var(--color-secondary)', bg: 'rgba(128,0,32,0.07)' },
+          { href: '/dashboard/queue',   icon: '🔢', label: 'Queue',   color: '#1E40AF',                bg: 'rgba(30,64,175,0.07)' },
+          { href: '/dashboard/track',   icon: '📋', label: 'Track',   color: '#065F46',                bg: 'rgba(6,95,70,0.07)'   },
         ].map(c => (
           <Link key={c.href} href={c.href} className="no-underline">
-            <div className="card p-5 flex flex-col items-center text-center cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1"
-              style={{ borderTop: `3px solid ${c.border}` }}>
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl mb-2"
-                style={{ backgroundColor: c.bg }}>{c.icon}</div>
-              <h3 className="font-bold text-sm mb-0.5" style={{ color: 'var(--color-secondary)' }}>{c.label}</h3>
-              <p className="text-xs" style={{ color: '#6B7280' }}>{c.desc}</p>
+            <div className="action-card flex flex-col items-center text-center p-3 sm:p-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl mb-2"
+                style={{ backgroundColor: c.bg }}>
+                {c.icon}
+              </div>
+              <span className="text-xs sm:text-sm font-bold" style={{ color: c.color }}>{c.label}</span>
             </div>
           </Link>
         ))}
       </div>
 
-      {/* Recent activity */}
-      <div className="card p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-extrabold text-base" style={{ color: 'var(--color-secondary)' }}>
-            Recent Activity
-          </h2>
-          <Link href="/dashboard/track" className="text-xs font-semibold no-underline hover:underline"
+      {/* ── Recent activity ── */}
+      <div className="section-card">
+        <div className="section-card-header">
+          <span className="section-card-title">Recent Activity</span>
+          <Link href="/dashboard/track" className="text-xs font-bold no-underline"
             style={{ color: 'var(--color-secondary)' }}>
             View all →
           </Link>
         </div>
 
-        {recent.length === 0 ? (
-          <div className="text-center py-6 sm:py-8">
-            <div className="text-3xl mb-2">📭</div>
-            <p className="text-sm" style={{ color: '#9CA3AF' }}>No requests yet. Submit your first one!</p>
+        {recentLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="spinner" />
+          </div>
+        ) : recent.length === 0 ? (
+          <div className="text-center py-10 px-4">
+            <div className="text-4xl mb-2">📭</div>
+            <p className="text-sm font-semibold" style={{ color: '#6B7280' }}>No requests yet</p>
+            <p className="text-xs mt-1 mb-4" style={{ color: '#9CA3AF' }}>Submit your first document request to get started.</p>
+            <Link href="/dashboard/request" className="btn btn-primary text-xs px-4 py-2">
+              Request a Document
+            </Link>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
-            {recent.map(req => (
-              <div key={req.id} className="flex items-center justify-between p-3 rounded-lg"
-                style={{ backgroundColor: '#F9FAFB' }}>
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold flex-shrink-0"
-                    style={{ backgroundColor: 'rgba(128,0,32,0.08)', color: 'var(--color-secondary)' }}>
-                    #{req.queueNumber}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: '#374151' }}>{req.documentType.name}</p>
-                    <p className="text-xs" style={{ color: '#9CA3AF' }}>
-                      {new Date(req.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
-                  </div>
+          <div>
+            {recent.map((req, i) => (
+              <div key={req.id}
+                className="flex items-center gap-3 px-4 py-3"
+                style={{ borderBottom: i < recent.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black flex-shrink-0"
+                  style={{ backgroundColor: 'rgba(128,0,32,0.07)', color: 'var(--color-secondary)' }}>
+                  #{req.queueNumber}
                 </div>
-                <span className={STATUS_BADGE[req.status]}>{req.status}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: '#1F2937' }}>
+                    {req.documentType.name}
+                  </p>
+                  <p className="text-xs" style={{ color: '#9CA3AF' }}>
+                    {new Date(req.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+                <span className={STATUS_BADGE[req.status]}>{STATUS_LABEL[req.status]}</span>
               </div>
             ))}
           </div>

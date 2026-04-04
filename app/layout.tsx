@@ -21,10 +21,7 @@ export default function RootLayout({
         <ClientProvider>
           <Suspense fallback={<Loading/>}>
             <RoleProvider>
-              <Navbar/>
-              <main className="min-h-screen w-full pt-20" style={{ backgroundColor: 'var(--color-bg)' }}>
-                {children}
-              </main>
+              {children}
             </RoleProvider>
           </Suspense>
         </ClientProvider>

@@ -2,9 +2,7 @@
 import ErrorCard from "@/components/ErrorCard"
 import { useSession } from "next-auth/react"
 import axios from "axios"
-import { useEffect, useState, useRef } from "react"
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
+import { useEffect, useState } from "react"
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, TextRun, AlignmentType } from "docx"
 import { saveAs } from "file-saver"
 
@@ -31,6 +29,166 @@ const SC: Record<string, string> = { PENDING:'#92400E', PROCESSING:'#1E40AF', RE
 
 type Tab = 'requests' | 'analytics'
 
+function buildReportHTML(report: ReportData): string {
+  const date = new Date(report.date).toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
+
+  const collegeMap: Record<string, number> = {}
+  const courseMap: Record<string, number> = {}
+  for (const r of report.requests) {
+    const col = r.user.college || 'N/A'
+    const crs = r.user.course  || 'N/A'
+    collegeMap[col] = (collegeMap[col] ?? 0) + 1
+    courseMap[crs]  = (courseMap[crs]  ?? 0) + 1
+  }
+  const colleges = Object.entries(collegeMap).sort((a,b) => b[1]-a[1])
+  const courses  = Object.entries(courseMap).sort((a,b) => b[1]-a[1]).slice(0, 10)
+  const maxCol = colleges[0]?.[1] ?? 1
+  const maxCrs = courses[0]?.[1] ?? 1
+
+  const bar = (pct: number, color: string) =>
+    `<div style="height:8px;border-radius:99px;background:#F3F4F6;overflow:hidden;margin-top:4px">
+       <div style="height:100%;width:${pct}%;background:${color};border-radius:99px"></div>
+     </div>`
+
+  const collegeRows = colleges.map(([col, cnt]) => `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+        <span style="font-weight:600;color:#374151">${col}</span>
+        <span style="font-weight:800;color:#800020">${cnt}</span>
+      </div>
+      ${bar(Math.round((cnt/maxCol)*100), '#800020')}
+    </div>`).join('')
+
+  const courseRows = courses.map(([crs, cnt]) => `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+        <span style="font-weight:600;color:#374151">${crs}</span>
+        <span style="font-weight:800;color:#800020">${cnt}</span>
+      </div>
+      ${bar(Math.round((cnt/maxCrs)*100), '#D4AF37')}
+    </div>`).join('')
+
+  const statusColors: Record<string, string> = { PENDING:'#92400E', PROCESSING:'#1E40AF', READY:'#065F46', COMPLETED:'#5B21B6', REJECTED:'#991B1B' }
+  const statusBg:     Record<string, string> = { PENDING:'#FEF3C7', PROCESSING:'#DBEAFE', READY:'#D1FAE5', COMPLETED:'#EDE9FE', REJECTED:'#FEE2E2' }
+
+  const statusBars = (['PENDING','PROCESSING','READY','COMPLETED','REJECTED'] as const).map(s => {
+    const count = report.requests.filter(r => r.status === s).length
+    const pct   = report.summary.total > 0 ? Math.round((count / report.summary.total) * 100) : 0
+    return `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${statusColors[s]}"></div>
+            <span style="font-size:11px;font-weight:700;color:${statusColors[s]}">${s.charAt(0)+s.slice(1).toLowerCase()}</span>
+          </div>
+          <span style="font-size:11px;font-weight:800;color:#374151">${count} <span style="color:#9CA3AF;font-weight:400">(${pct}%)</span></span>
+        </div>
+        ${bar(pct, statusColors[s])}
+      </div>`
+  }).join('')
+
+  const tableRows = report.requests.map((r, i) => `
+    <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+      <td style="padding:7px 10px;font-weight:700;color:#800020">#${r.queueNumber}</td>
+      <td style="padding:7px 10px;font-weight:600">${r.user.name}</td>
+      <td style="padding:7px 10px;font-family:monospace;font-size:10px">${r.user.idNumber}</td>
+      <td style="padding:7px 10px;font-size:10px">${r.user.college ?? '—'}</td>
+      <td style="padding:7px 10px;font-size:10px">${r.user.course ?? '—'}</td>
+      <td style="padding:7px 10px">${r.documentType.name}</td>
+      <td style="padding:7px 10px;color:#6B7280;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.purpose}</td>
+      <td style="padding:7px 10px">
+        <span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:9px;font-weight:700;text-transform:uppercase;background:${statusBg[r.status]};color:${statusColors[r.status]}">${r.status}</span>
+      </td>
+      <td style="padding:7px 10px;font-size:10px;color:#9CA3AF">${new Date(r.createdAt).toLocaleTimeString()}</td>
+    </tr>`).join('')
+
+  return `<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8"/>
+  <title>Smart Queue Report — ${date}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,Helvetica,sans-serif;color:#1F2937;background:#fff;padding:24px;font-size:12px}
+    @page{size:A4 landscape;margin:12mm}
+    @media print{body{padding:0}}
+  </style>
+</head><body>
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #800020;padding-bottom:12px;margin-bottom:20px">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <div style="width:32px;height:32px;background:#D4AF37;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:#800020">SQ</div>
+        <span style="font-size:20px;font-weight:900;color:#800020">Smart Queue</span>
+      </div>
+      <div style="font-size:10px;color:#6B7280">MSU-IIT Document Request System — Daily Report</div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#6B7280">
+      <div style="font-weight:700;color:#374151">${date}</div>
+      <div>Generated: ${new Date().toLocaleString()}</div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:20px">
+    ${[
+      ['Total',      report.summary.total,      '#800020'],
+      ['Pending',    report.summary.pending,    '#92400E'],
+      ['Processing', report.summary.processing, '#1E40AF'],
+      ['Ready',      report.summary.ready,      '#065F46'],
+      ['Completed',  report.summary.completed,  '#5B21B6'],
+      ['Rejected',   report.summary.rejected,   '#991B1B'],
+    ].map(([l,v,c]) => `
+      <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:10px;text-align:center;border-top:3px solid ${c}">
+        <div style="font-size:22px;font-weight:900;color:${c}">${v}</div>
+        <div style="font-size:9px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-top:2px">${l}</div>
+      </div>`).join('')}
+  </div>
+
+  <!-- Charts row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
+    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:14px">
+      <div style="font-size:11px;font-weight:800;color:#800020;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Status Breakdown</div>
+      ${statusBars}
+    </div>
+    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:14px">
+      <div style="font-size:11px;font-weight:800;color:#800020;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">By College</div>
+      ${collegeRows || '<div style="color:#9CA3AF;font-size:11px">No data</div>'}
+    </div>
+    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:14px">
+      <div style="font-size:11px;font-weight:800;color:#800020;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">By Course (Top 10)</div>
+      ${courseRows || '<div style="color:#9CA3AF;font-size:11px">No data</div>'}
+    </div>
+  </div>
+
+  <!-- Requests table -->
+  <div style="font-size:11px;font-weight:800;color:#800020;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+    Requests (${report.requests.length})
+  </div>
+  ${report.requests.length === 0
+    ? `<div style="text-align:center;padding:24px;color:#9CA3AF;background:#F9FAFB;border-radius:10px">No requests for this date.</div>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="background:#800020;color:#fff">
+            <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Queue #</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Student</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">ID</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">College</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Course</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Document</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Purpose</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Status</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase">Time</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>`}
+
+  <div style="margin-top:20px;font-size:9px;color:#9CA3AF;text-align:center;border-top:1px solid #E5E7EB;padding-top:10px">
+    Smart Queue — MSU-IIT Document Request System · Confidential
+  </div>
+</body></html>`
+}
+
 export default function StaffDashboard() {
   const { data: session } = useSession()
   const [requests, setRequests] = useState<Request[]>([])
@@ -47,9 +205,7 @@ export default function StaffDashboard() {
   const [report, setReport] = useState<ReportData | null>(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
-  const analyticsRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
-  const [showWatermark, setShowWatermark] = useState(false)
 
   const fetchRequests = async () => {
     setLoading(true); setError(null)
@@ -88,46 +244,72 @@ export default function StaffDashboard() {
   const today = new Date().toDateString()
   const todayCount = requests.filter(r => new Date(r.createdAt).toDateString() === today).length
 
-  // Export functions
-  const handlePrint = async () => {
-    if (!analyticsRef.current) return
-    setExporting(true)
-    try {
-      const canvas = await html2canvas(analyticsRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const imgWidth = 210
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
-      pdf.autoPrint()
-      window.open(pdf.output('bloburl'), '_blank')
-    } catch (err) {
-      console.error('Print error:', err)
-      alert('Failed to print. Please try again.')
-    }
-    setExporting(false)
-  }
+  // ── Export helpers ──────────────────────────────────────────────────────────
 
+  // PDF: generate and download PDF using jsPDF
   const handleDownloadPDF = async () => {
-    if (!analyticsRef.current) return
+    if (!report) return
     setExporting(true)
     try {
-      const canvas = await html2canvas(analyticsRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
+      const { default: jsPDF } = await import('jspdf')
+      const html = buildReportHTML(report)
+      
+      const iframe = document.createElement('iframe')
+      iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1200px;height:900px;border:none;visibility:hidden'
+      document.body.appendChild(iframe)
+      const iDoc = iframe.contentDocument!
+      iDoc.open()
+      iDoc.write(html)
+      iDoc.close()
+      await new Promise(r => setTimeout(r, 600))
+      
+      const { default: html2canvas } = await import('html2canvas')
+      const canvas = await html2canvas(iDoc.body, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false })
+      document.body.removeChild(iframe)
+      
       const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const imgWidth = 210
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-      let heightLeft = imgHeight
-      let position = 0
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-      heightLeft -= 297
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight
-        pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-        heightLeft -= 297
+      const pdfWidth = 273 // A4 landscape width minus margins (297 - 24)
+      const pdfHeight = 186 // A4 landscape height minus margins (210 - 24)
+      const imgWidth = canvas.width
+      const imgHeight = canvas.height
+      const ratio = pdfWidth / imgWidth
+      const scaledHeight = imgHeight * ratio
+      
+      const pdf = new jsPDF('l', 'mm', 'a4')
+      
+      if (scaledHeight <= pdfHeight) {
+        pdf.addImage(imgData, 'PNG', 12, 12, pdfWidth, scaledHeight)
+      } else {
+        const img = new Image()
+        img.src = imgData
+        await new Promise(resolve => { img.onload = resolve })
+        
+        const totalPages = Math.ceil(scaledHeight / pdfHeight)
+        
+        for (let page = 0; page < totalPages; page++) {
+          if (page > 0) {
+            pdf.addPage()
+          }
+          
+          const yMm = page * pdfHeight
+          const sourceY = (yMm / scaledHeight) * imgHeight
+          const heightMm = Math.min(pdfHeight, scaledHeight - yMm)
+          const sourceHeight = (heightMm / scaledHeight) * imgHeight
+          
+          const sliceCanvas = document.createElement('canvas')
+          sliceCanvas.width = imgWidth
+          sliceCanvas.height = Math.ceil(sourceHeight)
+          const sliceCtx = sliceCanvas.getContext('2d')!
+          sliceCtx.drawImage(img, 0, sourceY, imgWidth, sourceHeight, 0, 0, imgWidth, sourceHeight)
+          
+          const sliceImgData = sliceCanvas.toDataURL('image/png')
+          const sliceScaledHeight = heightMm
+          
+          pdf.addImage(sliceImgData, 'PNG', 12, 12, pdfWidth, sliceScaledHeight)
+        }
       }
-      pdf.save(`smart-queue-analytics-${reportDate}.pdf`)
+      
+      pdf.save(`smart-queue-report-${reportDate}.pdf`)
     } catch (err) {
       console.error('PDF export error:', err)
       alert('Failed to export PDF. Please try again.')
@@ -135,15 +317,48 @@ export default function StaffDashboard() {
     setExporting(false)
   }
 
+  // Print: open clean HTML in new tab, user prints from there
+  const handlePrint = () => {
+    if (!report) return
+    const html = buildReportHTML(report).replace(
+      '</body>',
+      `<script>
+        window.addEventListener('load', function() {
+          setTimeout(function() { window.print(); }, 500);
+        });
+      <\/script></body>`
+    )
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+  }
+
+  // PNG: render clean HTML in a hidden iframe, screenshot with html2canvas
   const handleDownloadImage = async () => {
-    if (!analyticsRef.current) return
+    if (!report) return
     setExporting(true)
     try {
-      const canvas = await html2canvas(analyticsRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
-      canvas.toBlob((blob) => { if (blob) { saveAs(blob, `smart-queue-analytics-${reportDate}.png`) } }, 'image/png')
+      const { default: html2canvas } = await import('html2canvas')
+      const iframe = document.createElement('iframe')
+      iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1200px;height:900px;border:none;visibility:hidden'
+      document.body.appendChild(iframe)
+      const iDoc = iframe.contentDocument!
+      iDoc.open()
+      iDoc.write(buildReportHTML(report))
+      iDoc.close()
+      await new Promise(r => setTimeout(r, 600))
+      const canvas = await html2canvas(iDoc.body, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false })
+      document.body.removeChild(iframe)
+      canvas.toBlob(blob => {
+        if (!blob) return
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = `smart-queue-report-${reportDate}.png`
+        a.click()
+      }, 'image/png')
     } catch (err) {
-      console.error('Image export error:', err)
-      alert('Failed to export image. Please try again.')
+      console.error('PNG export error:', err)
+      alert('Failed to export PNG. Please try again.')
     }
     setExporting(false)
   }
@@ -341,14 +556,7 @@ export default function StaffDashboard() {
       )}
 
       {tab === 'analytics' && (
-        <div ref={analyticsRef} style={{ backgroundColor: '#fff', padding: '1rem', position: 'relative' }}>
-          {showWatermark && (
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) rotate(-30deg)', 
-              fontSize: '4rem', fontWeight: 'bold', color: 'rgba(128, 0, 32, 0.1)', 
-              whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 999 }}>
-              SMART QUEUE • CONFIDENTIAL
-            </div>
-          )}
+        <div style={{ backgroundColor: '#fff', padding: '0.5rem' }}>
           <div className="flex flex-wrap items-center gap-3 mb-6">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold" style={{ color:'#374151' }}>Report Date</label>
@@ -379,31 +587,50 @@ export default function StaffDashboard() {
 
           {report && !reportLoading && (
             <>
+              {/* Summary stat cards */}
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
-                {(['total','pending','processing','ready','completed','rejected'] as const).map(k => (
-                  <div key={k} className="card p-4 text-center">
-                    <div className="text-2xl font-extrabold" style={{ color: k==='total'?'var(--color-secondary)':SC[k.toUpperCase()] ?? 'var(--color-secondary)' }}>
-                      {report.summary[k]}
-                    </div>
-                    <div className="text-xs font-semibold mt-1 capitalize" style={{ color:'#6B7280' }}>{k}</div>
+                {([
+                  ['total',      report.summary.total,      '#800020', '📋'],
+                  ['pending',    report.summary.pending,    '#92400E', '⏳'],
+                  ['processing', report.summary.processing, '#1E40AF', '⚙️'],
+                  ['ready',      report.summary.ready,      '#065F46', '✅'],
+                  ['completed',  report.summary.completed,  '#5B21B6', '🎉'],
+                  ['rejected',   report.summary.rejected,   '#991B1B', '✕'],
+                ] as [string, number, string, string][]).map(([k, v, c, icon]) => (
+                  <div key={k} className="stat-card text-center">
+                    <div className="text-lg mb-1">{icon}</div>
+                    <div className="text-2xl font-black" style={{ color: c }}>{v}</div>
+                    <div className="text-xs font-semibold capitalize mt-0.5" style={{ color:'#6B7280' }}>{k}</div>
                   </div>
                 ))}
               </div>
 
               <div className="card p-6 mb-6">
-                <h2 className="font-extrabold text-base mb-4" style={{ color:'var(--color-secondary)' }}>Status Breakdown</h2>
-                <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="font-black text-base" style={{ color:'var(--color-secondary)' }}>Status Breakdown</h2>
+                  <span className="text-xs font-semibold px-2 py-1 rounded-full"
+                    style={{ backgroundColor:'rgba(128,0,32,0.07)', color:'var(--color-secondary)' }}>
+                    {report.summary.total} total
+                  </span>
+                </div>
+                <div className="flex flex-col gap-4">
                   {(['PENDING','PROCESSING','READY','COMPLETED','REJECTED'] as RequestStatus[]).map(s => {
                     const count = report.requests.filter(r => r.status === s).length
                     const pct = report.summary.total > 0 ? Math.round((count / report.summary.total) * 100) : 0
                     return (
                       <div key={s}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold" style={{ color: SC[s] }}>{SL[s]}</span>
-                          <span className="text-xs font-bold" style={{ color:'#374151' }}>{count} ({pct}%)</span>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: SC[s] }} />
+                            <span className="text-xs font-bold" style={{ color: SC[s] }}>{SL[s]}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black" style={{ color:'#374151' }}>{count}</span>
+                            <span className="text-xs" style={{ color:'#9CA3AF' }}>({pct}%)</span>
+                          </div>
                         </div>
-                        <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor:'#F3F4F6' }}>
-                          <div className="h-full rounded-full transition-all" style={{ width:`${pct}%`, backgroundColor: SC[s] }} />
+                        <div className="chart-bar">
+                          <div className="chart-bar-fill" style={{ width:`${pct}%`, backgroundColor: SC[s] }} />
                         </div>
                       </div>
                     )
@@ -427,34 +654,34 @@ export default function StaffDashboard() {
                 return (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
                     <div className="card p-6">
-                      <h2 className="font-extrabold text-base mb-4" style={{ color:'var(--color-secondary)' }}>By College</h2>
+                      <h2 className="font-black text-base mb-4" style={{ color:'var(--color-secondary)' }}>By College</h2>
                       <div className="flex flex-col gap-3">
                         {colleges.map(([col, cnt]) => (
                           <div key={col}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-semibold" style={{ color:'#374151' }}>{col}</span>
-                              <span className="text-xs font-bold" style={{ color:'var(--color-secondary)' }}>{cnt}</span>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-bold" style={{ color:'#374151' }}>{col}</span>
+                              <span className="text-xs font-black" style={{ color:'var(--color-secondary)' }}>{cnt}</span>
                             </div>
-                            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor:'#F3F4F6' }}>
-                              <div className="h-full rounded-full" style={{ width:`${Math.round((cnt/maxCol)*100)}%`, backgroundColor:'var(--color-secondary)' }} />
+                            <div className="chart-bar">
+                              <div className="chart-bar-fill" style={{ width:`${Math.round((cnt/maxCol)*100)}%`, background:'linear-gradient(90deg, var(--color-secondary), var(--color-dark))' }} />
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
                     <div className="card p-6">
-                      <h2 className="font-extrabold text-base mb-4" style={{ color:'var(--color-secondary)' }}>
+                      <h2 className="font-black text-base mb-4" style={{ color:'var(--color-secondary)' }}>
                         By Course <span className="text-xs font-normal" style={{ color:'#9CA3AF' }}>(top 10)</span>
                       </h2>
                       <div className="flex flex-col gap-3">
                         {courses.map(([crs, cnt]) => (
                           <div key={crs}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-semibold" style={{ color:'#374151' }}>{crs}</span>
-                              <span className="text-xs font-bold" style={{ color:'var(--color-secondary)' }}>{cnt}</span>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-bold" style={{ color:'#374151' }}>{crs}</span>
+                              <span className="text-xs font-black" style={{ color:'var(--color-secondary)' }}>{cnt}</span>
                             </div>
-                            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor:'#F3F4F6' }}>
-                              <div className="h-full rounded-full" style={{ width:`${Math.round((cnt/maxCrs)*100)}%`, backgroundColor:'var(--color-tertiary)' }} />
+                            <div className="chart-bar">
+                              <div className="chart-bar-fill" style={{ width:`${Math.round((cnt/maxCrs)*100)}%`, background:'linear-gradient(90deg, var(--color-tertiary), var(--color-highlighted))' }} />
                             </div>
                           </div>
                         ))}
