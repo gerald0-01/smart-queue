@@ -18,7 +18,7 @@ export default function Register({ onBack }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const { role, setRole } = useContext(RoleContext)
+  const { role } = useContext(RoleContext)
 
   useEffect(() => {
     setIdError(
@@ -135,21 +135,6 @@ export default function Register({ onBack }: Props) {
               <input name="email" value={state.email} onChange={handleChange} type="email"
                 placeholder={role === 'ALUMNI' ? 'your@email.com' : 'name@g.msuiit.edu.ph'} required />
             </div>
-
-            {/* Alumni toggle */}
-            <label className="flex items-center gap-2.5 cursor-pointer select-none text-sm py-1">
-              <div className="relative">
-                <input type="checkbox" checked={role === 'ALUMNI'}
-                  onChange={() => setRole(role === 'STUDENT' ? 'ALUMNI' : 'STUDENT')}
-                  className="sr-only" />
-                <div className="w-9 h-5 rounded-full transition-colors"
-                  style={{ backgroundColor: role === 'ALUMNI' ? 'var(--color-secondary)' : '#D1D5DB' }}>
-                  <div className="w-4 h-4 bg-white rounded-full shadow transition-transform mt-0.5"
-                    style={{ transform: role === 'ALUMNI' ? 'translateX(1.1rem)' : 'translateX(0.1rem)' }} />
-                </div>
-              </div>
-              <span style={{ color:'#374151' }}>I&apos;m an alumni</span>
-            </label>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-bold uppercase tracking-wide" style={{ color:'#374151' }}>ID Number</label>
