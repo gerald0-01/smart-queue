@@ -4,6 +4,7 @@ import Register from "@/components/register/RegisterContainer"
 import { RoleContext } from "@/context/roleRegistrationContext"
 import { useContext, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 
 const ROLES = [
   {
@@ -42,10 +43,7 @@ export default function Page() {
         {/* Left panel */}
         <div className="auth-panel">
           <div className="relative z-10 text-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-xl mx-auto mb-6"
-              style={{ backgroundColor: 'var(--color-tertiary)', color: 'var(--color-secondary)' }}>
-              SQ
-            </div>
+            <Image src="/favicon.ico" alt="Smart Queue" width={80} height={80} className="w-20 h-20 rounded-2xl mx-auto mb-6" />
             <h1 className="text-4xl font-black text-white mb-3">Smart Queue</h1>
             <div style={{ width:'3rem', height:'3px', background:'var(--color-tertiary)', borderRadius:'99px', margin:'0 auto 1.5rem' }} />
             <p className="text-base leading-relaxed" style={{ color:'rgba(255,255,255,0.7)', maxWidth:'22rem' }}>
